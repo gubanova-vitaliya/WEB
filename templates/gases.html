@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>{{.gase.Title}}</title>
+    <link rel="stylesheet" href="/static/styles/index_style.css">
+</head>
+<body>
+<header>
+    <a href="/gases" class="home-btn">🏠 Домой</a>
+</header>
+
+<main>
+    <div class="card">
+        <h1>{{.gase.Title}}</h1>
+        <img src="{{.gase.ImageURL}}" alt="{{.gase.Title}}">
+        <p><strong>Формула:</strong> {{.gase.Formula}}</p>
+        <p><strong>Молярная масса:</strong> {{.gase.MolarMass}} г/моль</p>
+        <p class="gas-description">{{.gase.Description}}</p>
+
+        <!-- Форма для расчета давления -->
+        <div class="calculation-form">
+            <h2>🧪 Расчёт давления в сосуде при нагреве</h2>
+
+            <form id="pressure-form">
+                <div class="form-row">
+                    <div class="field-label">Начальное давление</div>
+                    <div class="input-with-icon">
+                        <input type="number" id="initial-pressure" step="0.01" placeholder=" " required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="field-label">Начальная температура</div>
+                    <div class="input-with-icon">
+                        <input type="number" id="initial-temperature" step="0.01" placeholder=" " required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="field-label">Конечная температура</div>
+                    <div class="input-with-icon">
+                        <input type="number" id="final-temperature" step="0.01" placeholder=" " required>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <button type="button" class="calculate-btn" onclick="calculatePressure()">
+                        Рассчитать давление
+                    </button>
+                </div>
+            </form>
+
+            <div id="result" class="result-container">
+                <div class="result-header">
+                    <h3>Результат расчета</h3>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script>
+    function calculatePressure() {
+        const initialPressure = parseFloat(document.getElementById('initial-pressure').value);
+        const initialTemp = parseFloat(document.getElementById('initial-temperature').value);
+        const finalTemp = parseFloat(document.getElementById('final-temperature').value);
+
+        if (!initialPressure || !initialTemp || !finalTemp) {
+            alert('Пожалуйста, заполните все поля');
+            return;
+        }
+
+        if (initialTemp <= 0) {
+            alert('Начальная температура должна быть больше 0 K');
+            return;
+        }
+
+        const finalPressure = (initialPressure * finalTemp / initialTemp).toFixed(2);
+
+        const resultDiv = document.getElementById('result');
+        const resultText = document.getElementById('result-text');
+
+        resultText.innerHTML = `Конечное давление: <strong>${finalPressure} Па</strong><br>
+                           При начальном давлении ${initialPressure} Па<br>
+                           и изменении температуры с ${initialTemp} K до ${finalTemp} K`;
+
+        resultDiv.style.display = 'block';
+        resultDiv.scrollIntoView({ behavior: 'smooth' });
+    }
+</script>
+
+<style>
+    /* Яркие стили для полей ввода */
+    .input-with-icon input {
+        width: 100%;
+        padding: 20px 20px 20px 50px;
+        border: 3px solid #4299e1;
+        border-radius: 12px;
+        font-size: 16px;
+        background: linear-gradient(135deg, #ffffff 0%, #f7fafc 100%);
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 12px rgba(66, 153, 225, 0.2);
+        height: 60px;
+        box-sizing: border-box;
+        font-weight: 600;
+        color: #2d3748;
+    }
+
+    .input-with-icon input:focus {
+        border-color: #3182ce;
+        box-shadow: 0 6px 20px rgba(49, 130, 206, 0.3);
+        outline: none;
+        background: linear-gradient(135deg, #ffffff 0%, #edf2f7 100%);
+    }
+
+    .input-with-icon input::placeholder {
+        color: #a0aec0;
+        font-weight: normal;
+    }
+
+    /* Увеличиваем отступы между рядами */
+    .form-row {
+        margin-bottom: 25px;
+        display: flex;
+        align-items: center;
+        gap: 25px;
+        padding: 8px 0;
+    }
+
+    /* Делаем подписи более заметными */
+    .field-label {
+        min-width: 200px;
+        font-weight: 700;
+        color: #2d3748;
+        font-size: 17px;
+        text-align: right;
+        padding: 8px 0;
+    }
+
+    .field-label::after {
+        content: ":";
+        color: #4299e1;
+        font-weight: bold;
+    }
+
+    /* Яркие иконки */
+    .input-icon {
+        position: absolute;
+        left: 18px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 22px;
+        z-index: 2;
+        color: #4299e1;
+        filter: drop-shadow(0 2px 4px rgba(66, 153, 225, 0.3));
+    }
+
+    /* Более яркие плавающие лейблы */
+    .input-with-icon input:focus + label,
+    .input-with-icon input:not(:placeholder-shown) + label {
+        top: -10px;
+        left: 55px;
+        font-size: 13px;
+        background: linear-gradient(0deg, #ffffff 50%, transparent 50%);
+        padding: 0 10px;
+        color: #3182ce;
+        font-weight: 700;
+        box-shadow: 0 2px 8px rgba(66, 153, 225, 0.2);
+        border-radius: 6px;
+        border: 1px solid #4299e1;
+    }
+
+    .input-with-icon label {
+        position: absolute;
+        left: 55px;
+        top: 30px;
+        transform: translateY(-50%);
+        color: #718096;
+        font-size: 16px;
+        pointer-events: none;
+        transition: all 0.3s ease;
+        background: linear-gradient(0deg, white 50%, transparent 50%);
+        padding: 0 6px;
+        font-weight: 600;
+    }
+
+    /* Яркая кнопка */
+    .calculate-btn {
+        width: 100%;
+        padding: 20px;
+        background: linear-gradient(135deg, #ffca28 0%, #fbbf24 100%);
+        color: #1a202c;
+        border: none;
+        border-radius: 12px;
+        font-size: 18px;
+        font-weight: 700;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        box-shadow: 0 6px 20px rgba(251, 191, 36, 0.4);
+        margin-top: 15px;
+        border: 2px solid #f59e0b;
+    }
+
+    .calculate-btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(251, 191, 36, 0.5);
+        background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+    }
+
+    /* Адаптивность */
+    @media (max-width: 768px) {
+        .form-row {
+            flex-direction: column;
+            gap: 12px;
+            align-items: stretch;
+            margin-bottom: 20px;
+        }
+
+        .field-label {
+            min-width: auto;
+            text-align: left;
+            order: -1;
+            font-size: 16px;
+            padding: 5px 0;
+        }
+
+        .input-with-icon input {
+            padding: 18px 18px 18px 48px;
+            height: 56px;
+        }
+
+        .input-icon {
+            left: 16px;
+            font-size: 20px;
+        }
+    }
+</style>
+</body>
+</html>

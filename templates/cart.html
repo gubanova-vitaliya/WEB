@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Лабораторный журнал расчетов</title>
+    <link rel="stylesheet" href="/static/styles/index_style.css">
+    <link rel="stylesheet" href="/static/styles/cart_style.css">
+</head>
+<body>
+<header>
+    <a href="/gases" class="home-btn">🏠 Домой</a>
+</header>
+
+<main>
+    <div class="journal-container">
+        <div class="journal-header">
+            <h1>🧪 Лабораторный журнал</h1>
+            <p class="journal-subtitle">База данных исследований идеальных газов</p>
+        </div>
+
+        <div class="journal-actions">
+            <button class="action-btn secondary disabled" onclick="return false;">
+                <span class="btn-icon">🗑️</span>
+                Очистить журнал
+            </button>
+        </div>
+
+        {{if .gases}}
+        <div class="gases-grid">
+            {{range .gases}}
+            <div class="gas-card">
+                <div class="gas-image">
+                    <img src="{{.ImageURL}}" alt="{{.Title}}" onerror="this.src='https://via.placeholder.com/120x120/667eea/ffffff?text=Gas'">
+                </div>
+                <div class="gas-content">
+                    <div class="gas-header">
+                        <h3>{{.Title}}</h3>
+                        <span class="gas-formula">{{.Formula}}</span>
+                    </div>
+                    <div class="gas-details">
+                        <div class="detail-item">
+                            <span class="detail-label">Молярная масса:</span>
+                            <span class="detail-value">{{.MolarMass}} г/моль</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">ID:</span>
+                            <span class="detail-value">#{{.ID}}</span>
+                        </div>
+                    </div>
+                    <p class="gas-description">{{.Description}}</p>
+
+                    <div class="calculation-history">
+                        <h4>📊 История расчетов</h4>
+                        {{if eq .ID 1}}
+                        <div class="calc-item">
+                            <span>P: 100кПа → 150кПа</span>
+                            <span>T: 300K → 450K</span>
+                        </div>
+                        {{else if eq .ID 2}}
+                        <div class="calc-item">
+                            <span>P: 80кПа → 120кПа</span>
+                            <span>T: 250K → 375K</span>
+                        </div>
+                        {{else if eq .ID 3}}
+                        <div class="calc-item">
+                            <span>P: 120кПа → 180кПа</span>
+                            <span>T: 200K → 300K</span>
+                        </div>
+                        {{else}}
+                        <div class="calc-item empty">
+                            <span>Расчеты отсутствуют</span>
+                        </div>
+                        {{end}}
+                    </div>
+                </div>
+            </div>
+            {{end}}
+        </div>
+
+        {{else}}
+        <div class="empty-journal">
+            <div class="empty-icon">🔍</div>
+            <h3>Данные не найдены</h3>
+            <p>Не удалось загрузить информацию о газах</p>
+            <a href="/gases" class="action-btn primary">
+                <span class="btn-icon">🔥</span>
+                Вернуться к газам
+            </a>
+        </div>
+        {{end}}
+    </div>
+</main>
+
+<script>
+    function repeatCalculation(id) {
+        console.log('Повтор расчета для газа #' + id);
+    }
+
+    function deleteCalculation(id) {
+        console.log('Удаление расчета #' + id);
+    }
+</script>
+</body>
+</html>

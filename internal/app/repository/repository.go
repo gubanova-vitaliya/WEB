@@ -12,17 +12,15 @@ func NewRepository() (*Repository, error) {
 	return &Repository{}, nil
 }
 
-// Структура для описания газа
 type Gas struct {
 	ID          int
-	Title       string  // Название газа (Азот, Кислород, Гелий)
-	Formula     string  // Химическая формула
-	MolarMass   float64 // Молярная масса, г/моль
-	ImageURL    string  // Ссылка на картинку из Minio
-	Description string  // Описание газа
+	Title       string  //Название газа
+	Formula     string  //Химическая формула
+	MolarMass   float64 //Молярная масса, г/моль
+	ImageURL    string  //Ссылка на картинку из Minio
+	Description string  //Описание газа
 }
 
-// Получить все газы
 func (r *Repository) GetGases() ([]Gas, error) {
 	Gases := []Gas{
 		{
@@ -46,7 +44,7 @@ func (r *Repository) GetGases() ([]Gas, error) {
 			Title:       "Гелий",
 			Formula:     "He",
 			MolarMass:   4.00,
-			ImageURL:    "http://localhost:9000/gase/geliy.webp",
+			ImageURL:    "http://localhost:9000/gase/geliy.png",
 			Description: "Гелий — лёгкий инертный газ, второй по распространённости во Вселенной. Используется в баллонах и охлаждающих системах.",
 		},
 		{
@@ -71,10 +69,7 @@ func (r *Repository) GetGases() ([]Gas, error) {
 	}
 	return Gases, nil
 }
-
-// Получить газ по ID
 func (r *Repository) GetGas(id int) (Gas, error) {
-	// тут у вас будет логика получения нужной услуги, тоже наверное через цикл в первой лабе, и через запрос к БД начиная со второй
 	gases, err := r.GetGases()
 	if err != nil {
 		return Gas{}, err // тут у нас уже есть кастомная ошибка из нашего метода, поэтому мы можем просто вернуть ее
@@ -85,10 +80,9 @@ func (r *Repository) GetGas(id int) (Gas, error) {
 			return gas, nil // если нашли, то просто возвращаем найденный заказ (услугу) без ошибок
 		}
 	}
-	return Gas{}, fmt.Errorf("заказ не найден") // тут нужна кастомная ошибка, чтобы понимать на каком этапе возникла ошибка и что произошло
+	return Gas{}, fmt.Errorf("заказ не найден")
 }
 
-// Поиск газа по названию
 func (r *Repository) GetGasesByTitle(title string) ([]Gas, error) {
 	gases, err := r.GetGases()
 	if err != nil {

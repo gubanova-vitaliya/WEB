@@ -44,7 +44,6 @@ func (h *Handler) GetGases(ctx *gin.Context) {
 	})
 }
 
-// Страница конкретного газа
 func (h *Handler) GetGas(ctx *gin.Context) {
 	idStr := ctx.Param("id")
 	id, err := strconv.Atoi(idStr)
@@ -66,13 +65,10 @@ func (h *Handler) GetGas(ctx *gin.Context) {
 	})
 }
 
-// Страница журнала расчетов
 func (h *Handler) GetCart(ctx *gin.Context) {
-	// Получаем все газы из репозитория
 	gases, err := h.Repository.GetGases()
 	if err != nil {
 		logrus.Error(err)
-		// В случае ошибки покажем пустую страницу с сообщением
 		ctx.HTML(http.StatusOK, "cart.html", gin.H{
 			"gases": []repository.Gas{},
 		})
@@ -84,7 +80,6 @@ func (h *Handler) GetCart(ctx *gin.Context) {
 	})
 }
 
-// Временная структура для расчетов (добавьте в начало файла)
 type Calculation struct {
 	ID              int
 	GasName         string

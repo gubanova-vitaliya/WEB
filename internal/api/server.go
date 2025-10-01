@@ -23,10 +23,10 @@ func StartServer() {
 	r.LoadHTMLGlob("templates/*")
 	r.Static("/static", "./resources")
 
-	r.GET("/gases", handler.GetGases)
-	r.GET("/gases/:id", handler.GetGas)
-
-	r.GET("/cart", handler.GetCart)
+	// 3 страницы:
+	r.GET("/gases", handler.GetGases)   // Главная страница
+	r.GET("/gases/:id", handler.GetGas) // Страница подробного описания (бывшая gases.html)
+	r.GET("/cart", handler.GetCart)     // Журнал расчетов
 
 	r.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")
 	log.Println("Server down")

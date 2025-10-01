@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Список газов</title>
+    <title>Каталог газов</title>
     <link rel="stylesheet" href="/static/styles/index_style.css">
 </head>
 <body>
@@ -12,11 +12,11 @@
 
 <main>
     <div class="page-header">
-        <h1>Типы газов</h1>
+        <h1>Каталог газов</h1>
         <a href="/cart" class="cart-link">
-            <span class="cart-icon">🧪</span>
+            <span class="cart-icon">📋</span>
             Журнал расчетов
-            <span class="cart-count">5</span>
+            <span class="cart-count">{{.journalCount}}</span>
         </a>
     </div>
 
@@ -30,10 +30,10 @@
         <div class="card">
             <h2>{{.Title}}</h2>
             <img src="{{.ImageURL}}" alt="{{.Title}}" width="150">
-            <p>Формула: {{.Formula}}</p>
-            <p>Молярная масса: {{.MolarMass}} г/моль</p>
+            <p><strong>Формула:</strong> {{.Formula}}</p>
+            <p><strong>Молярная масса:</strong> {{.MolarMass}} г/моль</p>
             <p>{{.Description}}</p>
-            <a href="/gases/{{.ID}}" class="yellow-btn">Подробнее</a>
+            <a href="/gases/{{.ID}}" class="yellow-btn">📖 Подробнее</a>
         </div>
         {{end}}
     </div>

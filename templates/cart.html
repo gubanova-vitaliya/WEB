@@ -2,9 +2,139 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Лабораторный журнал расчетов</title>
+    <title>Журнал расчетов давления</title>
     <link rel="stylesheet" href="/static/styles/index_style.css">
-    <link rel="stylesheet" href="/static/styles/cart_style.css">
+    <style>
+        .journal-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .journal-header {
+            text-align: center;
+            margin-bottom: 30px;
+            padding: 30px;
+            background: linear-gradient(135deg, #4680C2 0%, #3a6cb0 100%);
+            border-radius: 12px;
+            color: white;
+        }
+
+        .journal-header h1 {
+            font-size: 32px;
+            margin-bottom: 8px;
+            color: white;
+            font-weight: 600;
+        }
+
+        .journal-subtitle {
+            font-size: 16px;
+            opacity: 0.9;
+            margin: 0;
+            font-weight: 400;
+        }
+
+        .calculations-table {
+            width: 100%;
+            background: white;
+            border-radius: 12px;
+            border-collapse: collapse;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .calculations-table th {
+            background: #4680C2;
+            color: white;
+            padding: 15px;
+            text-align: center;
+            font-weight: 600;
+            font-size: 14px;
+        }
+
+        .calculations-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #e7e8ec;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        .calculations-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .calculations-table tr:hover {
+            background: #f8f9fa;
+        }
+
+        .gas-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .gas-name {
+            font-weight: 600;
+            color: #222222;
+        }
+
+        .gas-formula {
+            background: #4680C2;
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+
+        .pressure-value {
+            font-weight: 600;
+            color: #4680C2;
+        }
+
+        .temperature-value {
+            color: #e69100;
+        }
+
+        .calculation-id {
+            background: #f8f9fa;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 12px;
+            color: #656565;
+        }
+
+        .empty-journal {
+            text-align: center;
+            padding: 60px 20px;
+            background: white;
+            border-radius: 12px;
+            border: 2px dashed #d3d9de;
+            margin: 20px 0;
+        }
+
+        .summary-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            border: 1px solid #e7e8ec;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+            text-align: center;
+        }
+
+        .summary-number {
+            font-size: 24px;
+            font-weight: 700;
+            color: #4680C2;
+            margin-bottom: 5px;
+        }
+
+        .summary-label {
+            color: #656565;
+            font-size: 14px;
+        }
+    </style>
 </head>
 <body>
 <header>
@@ -14,91 +144,56 @@
 <main>
     <div class="journal-container">
         <div class="journal-header">
-            <h1>🧪 Лабораторный журнал</h1>
-            <p class="journal-subtitle">База данных исследований идеальных газов</p>
+            <h1>📊 Журнал расчетов давления</h1>
+            <p class="journal-subtitle">Расчеты давления идеального газа при нагреве</p>
         </div>
 
-        <div class="journal-actions">
-            <button class="action-btn secondary disabled" onclick="return false;">
-                <span class="btn-icon">🗑️</span>
-                Очистить журнал
-            </button>
-        </div>
-
-        {{if .gases}}
-        <div class="gases-grid">
-            {{range .gases}}
-            <div class="gas-card">
-                <div class="gas-image">
-                    <img src="{{.ImageURL}}" alt="{{.Title}}" onerror="this.src='https://via.placeholder.com/120x120/667eea/ffffff?text=Gas'">
-                </div>
-                <div class="gas-content">
-                    <div class="gas-header">
-                        <h3>{{.Title}}</h3>
+        {{if .calculations}}
+        <table class="calculations-table">
+            <thead>
+            <tr>
+                <th>ID</th>
+                <th>Газ</th>
+                <th>Начальное давление</th>
+                <th>Начальная температура</th>
+                <th>Конечная температура</th>
+                <th>Конечное давление</th>
+            </tr>
+            </thead>
+            <tbody>
+            {{range .calculations}}
+            <tr>
+                <td>
+                    <span class="calculation-id">#{{.ID}}</span>
+                </td>
+                <td>
+                    <div class="gas-info">
+                        <div class="gas-name">{{.GasTitle}}</div>
                         <span class="gas-formula">{{.Formula}}</span>
                     </div>
-                    <div class="gas-details">
-                        <div class="detail-item">
-                            <span class="detail-label">Молярная масса:</span>
-                            <span class="detail-value">{{.MolarMass}} г/моль</span>
-                        </div>
-                        <div class="detail-item">
-                            <span class="detail-label">ID:</span>
-                            <span class="detail-value">#{{.ID}}</span>
-                        </div>
-                    </div>
-                    <p class="gas-description">{{.Description}}</p>
-
-                    <div class="calculation-history">
-                        <h4>📊 История расчетов</h4>
-                        {{if eq .ID 1}}
-                        <div class="calc-item">
-                            <span>P: 100кПа → 150кПа</span>
-                            <span>T: 300K → 450K</span>
-                        </div>
-                        {{else if eq .ID 2}}
-                        <div class="calc-item">
-                            <span>P: 80кПа → 120кПа</span>
-                            <span>T: 250K → 375K</span>
-                        </div>
-                        {{else if eq .ID 3}}
-                        <div class="calc-item">
-                            <span>P: 120кПа → 180кПа</span>
-                            <span>T: 200K → 300K</span>
-                        </div>
-                        {{else}}
-                        <div class="calc-item empty">
-                            <span>Расчеты отсутствуют</span>
-                        </div>
-                        {{end}}
-                    </div>
-                </div>
-            </div>
+                </td>
+                <td class="pressure-value">{{.InitialPressure}} Па</td>
+                <td class="temperature-value">{{.InitialTemperature}} K</td>
+                <td class="temperature-value">{{.FinalTemperature}} K</td>
+                <td class="pressure-value"><strong>{{printf "%.0f" .FinalPressure}} Па</strong></td>
+            </tr>
             {{end}}
+            </tbody>
+        </table>
+
+        <div class="summary-card">
+            <div class="summary-number">{{.journalCount}}</div>
+            <div class="summary-label">Всего расчетов в журнале</div>
         </div>
 
         {{else}}
         <div class="empty-journal">
-            <div class="empty-icon">🔍</div>
-            <h3>Данные не найдены</h3>
-            <p>Не удалось загрузить информацию о газах</p>
-            <a href="/gases" class="action-btn primary">
-                <span class="btn-icon">🔥</span>
-                Вернуться к газам
-            </a>
+            <div style="font-size: 48px; margin-bottom: 16px; opacity: 0.5;">📝</div>
+            <h3>Журнал расчетов пуст</h3>
+            <p>Расчеты давления появятся здесь после проведения вычислений</p>
         </div>
         {{end}}
     </div>
 </main>
-
-<script>
-    function repeatCalculation(id) {
-        console.log('Повтор расчета для газа #' + id);
-    }
-
-    function deleteCalculation(id) {
-        console.log('Удаление расчета #' + id);
-    }
-</script>
 </body>
 </html>

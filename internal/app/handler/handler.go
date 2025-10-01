@@ -4,88 +4,74 @@ import (
 	"WEB/internal/app/repository"
 	"net/http"
 	"strconv"
-	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/sirupsen/logrus"
 )
 
 type Handler struct {
-	Repository *repository.Repository
+	repo *repository.Repository
 }
 
-func NewHandler(r *repository.Repository) *Handler {
-	return &Handler{
-		Repository: r,
-	}
+func NewHandler(repo *repository.Repository) *Handler {
+	return &Handler{repo: repo}
 }
 
-func (h *Handler) GetGases(ctx *gin.Context) {
+func (h *Handler) GetGases(c *gin.Context) {
+	query := c.Query("query")
 	var gases []repository.Gas
 	var err error
 
-	searchQuery := ctx.Query("query")
-	if searchQuery == "" {
-		gases, err = h.Repository.GetGases()
-		if err != nil {
-			logrus.Error(err)
-		}
+	if query != "" {
+		gases, err = h.repo.GetGasesByTitle(query)
 	} else {
-		gases, err = h.Repository.GetGasesByTitle(searchQuery)
-		if err != nil {
-			logrus.Error(err)
-		}
+		gases, err = h.repo.GetGases()
 	}
 
-	ctx.HTML(http.StatusOK, "index.html", gin.H{
-		"time":  time.Now().Format("15:04:05"),
-		"gases": gases,
-		"query": searchQuery,
-	})
-}
-
-func (h *Handler) GetGas(ctx *gin.Context) {
-	idStr := ctx.Param("id")
-	id, err := strconv.Atoi(idStr)
 	if err != nil {
-		logrus.Error(err)
-		ctx.String(http.StatusBadRequest, "Неверный ID")
-		return
-	}
-
-	gas, err := h.Repository.GetGas(id)
-	if err != nil {
-		logrus.Error(err)
-		ctx.String(http.StatusNotFound, "Газ не найден")
-		return
-	}
-
-	ctx.HTML(http.StatusOK, "gases.html", gin.H{
-		"gas": gas,
-	})
-}
-
-func (h *Handler) GetCart(ctx *gin.Context) {
-	gases, err := h.Repository.GetGases()
-	if err != nil {
-		logrus.Error(err)
-		ctx.HTML(http.StatusOK, "cart.html", gin.H{
-			"gases": []repository.Gas{},
+		c.HTML(http.StatusInternalServerError, "index.html", gin.H{
+			"error": "Ошибка загрузки газов",
+			"query": query,
 		})
 		return
 	}
 
-	ctx.HTML(http.StatusOK, "cart.html", gin.H{
-		"gases": gases,
+	journalCount := h.repo.GetJournalCount()
+
+	c.HTML(http.StatusOK, "index.html", gin.H{
+		"gases":        gases,
+		"query":        query,
+		"journalCount": journalCount,
 	})
 }
 
-type Calculation struct {
-	ID              int
-	GasName         string
-	InitialPressure float64
-	FinalPressure   float64
-	InitialTemp     float64
-	FinalTemp       float64
-	Date            string
+func (h *Handler) GetGas(c *gin.Context) {
+	idStr := c.Param("id")
+	id, err := strconv.Atoi(idStr)
+	if err != nil {
+		c.HTML(http.StatusBadRequest, "gases.html", gin.H{
+			"error": "Неверный ID газа",
+		})
+		return
+	}
+
+	gas, err := h.repo.GetGas(id)
+	if err != nil {
+		c.HTML(http.StatusNotFound, "gases.html", gin.H{
+			"error": "Газ не найден",
+		})
+		return
+	}
+
+	c.HTML(http.StatusOK, "gases.html", gin.H{
+		"gase": gas,
+	})
+}
+
+func (h *Handler) GetCart(c *gin.Context) {
+	journal := h.repo.GetJournal()
+
+	c.HTML(http.StatusOK, "cart.html", gin.H{
+		"calculations": journal.Calculations,
+		"journalCount": h.repo.GetJournalCount(),
+	})
 }

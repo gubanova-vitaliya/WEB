@@ -3,9 +3,11 @@ package repository
 import (
 	"fmt"
 	"strings"
+	"sync"
 )
 
 type Repository struct {
+	mu sync.RWMutex
 }
 
 func NewRepository() (*Repository, error) {
@@ -14,12 +16,67 @@ func NewRepository() (*Repository, error) {
 
 type Gas struct {
 	ID          int
-	Title       string  //Название газа
-	Formula     string  //Химическая формула
-	MolarMass   float64 //Молярная масса, г/моль
-	ImageURL    string  //Ссылка на картинку из Minio
-	Description string  //Описание газа
+	Title       string
+	Formula     string
+	MolarMass   float64
+	ImageURL    string
+	Description string
 }
+
+// Структура для расчета давления
+type PressureCalculation struct {
+	ID                 int
+	GasID              int
+	GasTitle           string
+	Formula            string
+	InitialPressure    float64 // Па
+	InitialTemperature float64 // K
+	FinalTemperature   float64 // K
+	FinalPressure      float64 // Па
+}
+
+// Журнал расчетов
+type Journal struct {
+	Calculations []PressureCalculation
+}
+
+var (
+	journalStorage = &Journal{
+		Calculations: []PressureCalculation{
+			{
+				ID:                 1,
+				GasID:              1,
+				GasTitle:           "Азот",
+				Formula:            "N₂",
+				InitialPressure:    101325,
+				InitialTemperature: 293,
+				FinalTemperature:   373,
+				FinalPressure:      128857,
+			},
+			{
+				ID:                 2,
+				GasID:              2,
+				GasTitle:           "Кислород",
+				Formula:            "O₂",
+				InitialPressure:    100000,
+				InitialTemperature: 273,
+				FinalTemperature:   323,
+				FinalPressure:      118315,
+			},
+			{
+				ID:                 3,
+				GasID:              3,
+				GasTitle:           "Гелий",
+				Formula:            "He",
+				InitialPressure:    95000,
+				InitialTemperature: 283,
+				FinalTemperature:   353,
+				FinalPressure:      118551,
+			},
+		},
+	}
+	journalMutex = &sync.RWMutex{}
+)
 
 func (r *Repository) GetGases() ([]Gas, error) {
 	Gases := []Gas{
@@ -69,18 +126,19 @@ func (r *Repository) GetGases() ([]Gas, error) {
 	}
 	return Gases, nil
 }
+
 func (r *Repository) GetGas(id int) (Gas, error) {
 	gases, err := r.GetGases()
 	if err != nil {
-		return Gas{}, err // тут у нас уже есть кастомная ошибка из нашего метода, поэтому мы можем просто вернуть ее
+		return Gas{}, err
 	}
 
 	for _, gas := range gases {
 		if gas.ID == id {
-			return gas, nil // если нашли, то просто возвращаем найденный заказ (услугу) без ошибок
+			return gas, nil
 		}
 	}
-	return Gas{}, fmt.Errorf("заказ не найден")
+	return Gas{}, fmt.Errorf("газ не найден")
 }
 
 func (r *Repository) GetGasesByTitle(title string) ([]Gas, error) {
@@ -97,4 +155,17 @@ func (r *Repository) GetGasesByTitle(title string) ([]Gas, error) {
 	}
 
 	return result, nil
+}
+
+// Методы для работы с журналом расчетов
+func (r *Repository) GetJournal() *Journal {
+	journalMutex.RLock()
+	defer journalMutex.RUnlock()
+	return journalStorage
+}
+
+func (r *Repository) GetJournalCount() int {
+	journalMutex.RLock()
+	defer journalMutex.RUnlock()
+	return len(journalStorage.Calculations)
 }

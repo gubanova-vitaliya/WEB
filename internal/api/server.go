@@ -23,9 +23,10 @@ func StartServer() {
 	r.LoadHTMLGlob("templates/*")
 	r.Static("/static", "./resources")
 
-	// 3 страницы:
+	// Добавьте этот обработчик для корневого пути
+	r.GET("/", handler.GetGases)        // Главная страница по корневому URL
 	r.GET("/gases", handler.GetGases)   // Главная страница
-	r.GET("/gases/:id", handler.GetGas) // Страница подробного описания (бывшая gases.html)
+	r.GET("/gases/:id", handler.GetGas) // Страница подробного описания
 	r.GET("/cart", handler.GetCart)     // Журнал расчетов
 
 	r.Run() // listen and serve on 0.0.0.0:8080 (for windows "localhost:8080")

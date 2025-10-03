@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Каталог газов</title>
-    <link rel="stylesheet" href="/static/styles/index_style.css">
+    <link rel="stylesheet" href="/styles/index_style.css">
 </head>
 <body>
 <header>
@@ -13,7 +13,7 @@
 <main>
     <div class="page-header">
         <h1>Каталог газов</h1>
-        <a href="/cart" class="cart-link">
+        <a href="/calculations" class="cart-link">
             <span class="cart-icon">📋</span>
             Журнал расчетов
             <span class="cart-count">{{.journalCount}}</span>
@@ -25,223 +25,58 @@
         <button type="submit">🔍 Поиск газа</button>
     </form>
 
+    {{if .query}}
+    <div class="search-results">
+        {{if len .gases | eq 1}}
+        <p>Найден один результат по запросу: "<strong>{{.query}}</strong>". Перенаправляем на детальную страницу...</p>
+        {{else}}
+        <p>Результаты поиска по запросу: "<strong>{{.query}}</strong>" (найдено: {{len .gases}})</p>
+        {{end}}
+    </div>
+    {{end}}
+
+    {{if .gases}}
     <div class="grid">
         {{range .gases}}
         <div class="card">
-            <h2>{{.Title}}</h2>
-            <img src="{{.ImageURL}}" alt="{{.Title}}" width="150">
-            <p><strong>Формула:</strong> {{.Formula}}</p>
-            <p><strong>Молярная масса:</strong> {{.MolarMass}} г/моль</p>
-            <p>{{.Description}}</p>
-            <a href="/gases/{{.ID}}" class="yellow-btn">📖 Подробнее</a>
+            <div class="card-image">
+                <img src="{{.ImageURL}}" alt="{{.Title}}">
+            </div>
+            <div class="card-content">
+                <h2>{{.Title}}</h2>
+                <div class="card-info">
+                    <div class="info-item">
+                        <strong>Формула:</strong>
+                        <span class="formula">{{.Formula}}</span>
+                    </div>
+                    <div class="info-item">
+                        <strong>Молярная масса:</strong>
+                        <span>{{.MolarMass}} г/моль</span>
+                    </div>
+                </div>
+                <p class="description">{{.Description}}</p>
+                <div class="card-actions">
+                    <a href="/gases/{{.ID}}" class="detail-btn">📖 Подробнее</a>
+                    <form method="post" action="/calculations" style="display: inline;">
+                        <input type="hidden" name="gas_id" value="{{.ID}}">
+                        <button type="submit" class="add-btn">➕ Добавить</button>
+                    </form>
+                </div>
+            </div>
         </div>
         {{end}}
     </div>
+    {{else}}
+    <div class="empty-state">
+        {{if .query}}
+        <h2>Ничего не найдено</h2>
+        <p>По запросу "<strong>{{.query}}</strong>" ничего не найдено.</p>
+        <p>Попробуйте изменить поисковый запрос или <a href="/gases">просмотреть все газы</a>.</p>
+        {{else}}
+        <h2>Нет газов</h2>
+        <p>В каталоге пока нет газов.</p>
+        {{end}}
+    </div>
+    {{end}}
 </main>
-</body>
-<style>
-    /* Добавим в существующий файл */
-
-    .cart-link {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 10px 16px;
-        background-color: #4680C2;
-        color: white;
-        text-decoration: none;
-        border-radius: 8px;
-        font-weight: 500;
-        transition: background-color 0.2s ease;
-    }
-
-    .cart-link:hover {
-        background-color: #3a6cb0;
-    }
-
-    .cart-icon {
-        font-size: 18px;
-    }
-
-    .cart-count {
-        background: #ff3347;
-        color: white;
-        padding: 2px 8px;
-        border-radius: 10px;
-        font-size: 12px;
-        font-weight: 500;
-        min-width: 18px;
-        height: 18px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-    /* Стили для сетки карточек */
-    .grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-        gap: 20px;
-        padding: 20px;
-        max-width: 1200px;
-        margin: 0 auto;
-    }
-
-    /* Стили для карточек газов */
-    .card {
-        background: white;
-        border-radius: 12px;
-        padding: 20px;
-        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        border: 1px solid #e0e0e0;
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-        display: flex;
-        flex-direction: column;
-        height: fit-content;
-    }
-
-    .card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
-    }
-
-    .card h2 {
-        margin: 0 0 12px 0;
-        color: #333;
-        font-size: 1.4em;
-        font-weight: 600;
-    }
-
-    .card img {
-        display: block;
-        margin: 0 auto 12px auto;
-        border-radius: 8px;
-        max-width: 100%;
-        height: auto;
-    }
-
-    .card p {
-        margin: 8px 0;
-        color: #666;
-        line-height: 1.4;
-    }
-
-    .card strong {
-        color: #333;
-    }
-
-    /* Стили для кнопки "Подробнее" */
-    .yellow-btn {
-        display: inline-block;
-        padding: 10px 16px;
-        background-color: #ffc107;
-        color: #333;
-        text-decoration: none;
-        border-radius: 6px;
-        font-weight: 500;
-        text-align: center;
-        margin-top: auto;
-        transition: background-color 0.2s ease;
-        border: none;
-        cursor: pointer;
-    }
-
-    .yellow-btn:hover {
-        background-color: #e0a800;
-    }
-
-    /* Стили для заголовка страницы */
-    .page-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 20px;
-        max-width: 1200px;
-        margin: 0 auto;
-    }
-
-    .page-header h1 {
-        margin: 0;
-        color: #333;
-    }
-
-    /* Стили для формы поиска */
-    .search-form {
-        display: flex;
-        gap: 12px;
-        padding: 0 20px 20px;
-        max-width: 1200px;
-        margin: 0 auto;
-    }
-
-    .search-form input {
-        flex: 1;
-        padding: 10px 14px;
-        border: 1px solid #ddd;
-        border-radius: 6px;
-        font-size: 14px;
-    }
-
-    .search-form button {
-        padding: 10px 20px;
-        background-color: #4680C2;
-        color: white;
-        border: none;
-        border-radius: 6px;
-        cursor: pointer;
-        font-weight: 500;
-        transition: background-color 0.2s ease;
-    }
-
-    .search-form button:hover {
-        background-color: #3a6cb0;
-    }
-
-    /* Базовые стили для body */
-    body {
-        margin: 0;
-        padding: 0;
-        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-        background-color: #f5f5f5;
-        color: #333;
-    }
-
-    /* Стили для header */
-    header {
-        background-color: white;
-        padding: 16px 20px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    }
-
-    .home-btn {
-        color: #4680C2;
-        text-decoration: none;
-        font-weight: 500;
-        padding: 8px 16px;
-        border-radius: 6px;
-        transition: background-color 0.2s ease;
-    }
-
-    .home-btn:hover {
-        background-color: #f0f0f0;
-    }
-    /* Стили для header - темно-синий вариант */
-    header {
-        background-color: #3a6cb0; /* Более темный синий */
-        padding: 16px 20px;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    }
-
-    .home-btn {
-        color: white;
-        text-decoration: none;
-        font-weight: 500;
-        padding: 8px 16px;
-        border-radius: 6px;
-        transition: background-color 0.2s ease;
-    }
-
-    .home-btn:hover {
-        background-color: rgba(255, 255, 255, 0.2);
-    }
-</style>
 </html>

@@ -23,6 +23,23 @@ x-minio-common: &minio-common
 # using nginx reverse proxy, load balancing, you can access
 # it through port 9000.
 services:
+  postgres:
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 1234
+      POSTGRES_DB: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    adminer:
+      image: adminer:latest
+      ports:
+        - "8080:8080"
+      depends_on:
+        - postgres
   minio1:
     <<: *minio-common
     hostname: minio1
@@ -76,3 +93,4 @@ volumes:
   data3-2:
   data4-1:
   data4-2:
+  postgres_data:

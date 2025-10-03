@@ -135,8 +135,6 @@ func (h *Handler) GetAllGases(ctx *gin.Context) {
 		"query":        query,
 	})
 }
-
-// GetGasById обработчик для получения детальной информации о газе
 func (h *Handler) GetGasById(ctx *gin.Context) {
 	strId := ctx.Param("id")
 	id, err := strconv.Atoi(strId)
@@ -199,7 +197,6 @@ func (h *Handler) DeleteCalculation(ctx *gin.Context) {
 	}
 }
 
-// Добавьте обработчик для главной страницы
 func (h *Handler) GetHomePage(ctx *gin.Context) {
 	ctx.Redirect(http.StatusFound, "/gases")
 }

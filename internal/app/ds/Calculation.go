@@ -1,4 +1,3 @@
-// internal/app/ds/Calculation.go
 package ds
 
 import (

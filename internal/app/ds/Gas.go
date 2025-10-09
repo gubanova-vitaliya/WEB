@@ -1,4 +1,3 @@
-// internal/app/ds/Gas.go
 package ds
 
 type Gas struct {

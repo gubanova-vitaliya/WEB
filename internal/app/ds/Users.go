@@ -1,4 +1,3 @@
-// internal/app/ds/Users.go
 package ds
 
 type Users struct {

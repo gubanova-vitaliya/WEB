@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <title>Журнал расчетов</title>
-    <link rel="stylesheet" href="/styles/index_style.css">
+    <link rel="stylesheet" href="/styles/calculations_style.css">
 </head>
 <body>
 <header>
@@ -12,323 +12,65 @@
 
 <main>
     <div class="page-header">
-        <h1>Журнал расчетов</h1>
-        <div class="journal-actions">
+        <h1>📋 Журнал расчетов</h1>
+        <div class="journal-info">
+            <span class="journal-count">Записей: {{.journalCount}}</span>
+            {{if .calculations}}
             <form method="post" action="/calculations/clear" style="display: inline;">
-                <button type="submit" class="clear-btn" onclick="return confirm('Очистить весь журнал расчетов?')">🗑️ Очистить журнал</button>
+                <button type="submit" class="clear-btn" onclick="return confirm('Вы уверены, что хотите очистить весь журнал расчетов?')">
+                    🗑️ Очистить журнал
+                </button>
             </form>
+            {{end}}
         </div>
     </div>
 
-
     <div class="calculations-container">
-        {{if .data}}
-            <div class="calculations-list">
-                {{range .data}}
-                <div class="calculation-card">
-                    <div class="calculation-header">
-                        <div class="gas-info">
-                            <h3>Расчет #{{.ID}}</h3>
-                            <div class="gas-details">
-                                <span class="gas-name">{{.Gas.Title}}</span>
-                                <span class="gas-formula">{{.Gas.Formula}}</span>
-                                <span class="gas-mass">Молярная масса: {{.Gas.MolarMass}} г/моль</span>
-                            </div>
-                        </div>
-                        <div class="calculation-actions">
-                            <button class="delete-btn">🗑️</button>
-                        </div>
-                    </div>
-                    
-                    <div class="calculation-form">
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Объем (л):</label>
-                                <input type="number" name="volume" value="{{if .Volume}}{{.Volume}}{{else}}{{end}}" step="0.1" min="0" placeholder="0.0">
-                            </div>
-                            <div class="form-group">
-                                <label>T₁ (°C):</label>
-                                <input type="number" name="temperature1" value="{{if .Temperature1}}{{.Temperature1}}{{else}}{{end}}" step="0.1" placeholder="0.0">
-                            </div>
-                            <div class="form-group">
-                                <label>T₂ (°C):</label>
-                                <input type="number" name="temperature2" value="{{if .Temperature2}}{{.Temperature2}}{{else}}{{end}}" step="0.1" placeholder="0.0">
-                            </div>
-                        </div>
-                        
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>P₁ (атм):</label>
-                                <input type="number" name="pressure1" value="{{if .Pressure1}}{{.Pressure1}}{{else}}{{end}}" step="0.01" min="0" placeholder="0.0">
-                            </div>
-                            <div class="form-group">
-                                <label>Масса (г):</label>
-                                <input type="number" name="mass" value="{{if .Mass}}{{.Mass}}{{else}}{{end}}" step="0.001" min="0" placeholder="0.0">
-                            </div>
-                            <div class="form-group">
-                                <label>Моль:</label>
-                                <input type="number" name="moles" value="{{if .Moles}}{{.Moles}}{{else}}{{end}}" step="0.001" min="0" placeholder="0.0">
-                            </div>
-                        </div>
-                        
-                        <div class="result-section">
-                            {{if .Pressure2}}
-                            <div class="result-item">
-                                <strong>P₂ = {{printf "%.2f" .Pressure2}} атм</strong>
-                            </div>
-                            {{else}}
-                            <div class="result-item">
-                                <span class="result-placeholder">Введите данные для расчета</span>
-                            </div>
-                            {{end}}
-                        </div>
-                    </div>
-                </div>
+        {{if .calculations}}
+        <div class="table-wrapper">
+            <table class="calculations-table">
+                <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Газ</th>
+                    <th>Формула</th>
+                    <th>Молярная масса</th>
+                    <th>Объем (л)</th>
+                    <th>T₁ (°C)</th>
+                    <th>T₂ (°C)</th>
+                    <th>P₁ (атм)</th>
+                    <th>P₂ (атм)</th>
+                    <th>Масса (г)</th>
+                    <th>Моли</th>
+                    <th>Дата добавления</th>
+                </tr>
+                </thead>
+                <tbody>
+                {{range .calculations}}
+                <tr>
+                    <td class="calculation-id">{{.ID}}</td>
+                    <td class="gas-name">{{.Gas.Title}}</td>
+                    <td class="gas-formula">{{.Gas.Formula}}</td>
+                    <td class="molar-mass">{{.Gas.MolarMass}} г/моль</td>
+                    <td class="volume">{{if gt .Volume 0}}{{printf "%.2f" .Volume}}{{else}}<span class="empty-value">-</span>{{end}}</td>
+                    <td class="temperature">{{if gt .Temperature1 0}}{{printf "%.1f" .Temperature1}}{{else}}<span class="empty-value">-</span>{{end}}</td>
+                    <td class="temperature">{{if gt .Temperature2 0}}{{printf "%.1f" .Temperature2}}{{else}}<span class="empty-value">-</span>{{end}}</td>
+                    <td class="pressure">{{if gt .Pressure1 0}}{{printf "%.2f" .Pressure1}}{{else}}<span class="empty-value">-</span>{{end}}</td>
+                    <td class="pressure">{{if gt .Pressure2 0}}{{printf "%.2f" .Pressure2}}{{else}}<span class="empty-value">-</span>{{end}}</td>
+                    <td class="mass">{{if gt .Mass 0}}{{printf "%.3f" .Mass}}{{else}}<span class="empty-value">-</span>{{end}}</td>
+                    <td class="moles">{{if gt .Moles 0}}{{printf "%.3f" .Moles}}{{else}}<span class="empty-value">-</span>{{end}}</td>
+                    <td class="date-added">{{.DateCreate.Format "02.01.2006 15:04"}}</td>
+                </tr>
                 {{end}}
-            </div>
+                </tbody>
+            </table>
+        </div>
         {{else}}
-            <div class="empty-state">
-                <h2>Журнал расчетов пуст</h2>
-                <p>У вас пока нет расчетов в журнале.</p>
-                <a href="/gases" class="calc-btn">🔬 Перейти к каталогу газов</a>
+                </div>
             </div>
+        </div>
         {{end}}
     </div>
 </main>
-
-<style>
-    .calculations-container {
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 20px;
-    }
-
-    .calculations-list {
-        display: flex;
-        flex-direction: column;
-        gap: 20px;
-    }
-
-    .calculation-card {
-        background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(10px);
-        border-radius: 12px;
-        padding: 15px;
-        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        transition: all 0.3s ease;
-        margin-bottom: 15px;
-    }
-
-    .calculation-card:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
-    }
-
-    .calculation-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        margin-bottom: 15px;
-        padding-bottom: 10px;
-        border-bottom: 1px solid #e2e8f0;
-    }
-
-    .gas-info h3 {
-        margin: 0 0 8px 0;
-        color: #2d3748;
-        font-size: 1.1em;
-        font-weight: 700;
-    }
-
-    .gas-details {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-    }
-
-    .gas-name {
-        font-weight: 600;
-        color: #667eea;
-        font-size: 14px;
-    }
-
-    .gas-formula {
-        font-family: 'Courier New', monospace;
-        color: #4a5568;
-        font-size: 13px;
-        font-weight: bold;
-    }
-
-    .gas-mass {
-        color: #718096;
-        font-size: 12px;
-    }
-
-    .calculation-actions {
-        display: flex;
-        gap: 8px;
-    }
-
-    .calculation-form {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-    }
-
-    .form-row {
-        display: grid;
-        grid-template-columns: 1fr 1fr 1fr;
-        gap: 12px;
-    }
-
-    .form-group {
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-    }
-
-    .form-group label {
-        font-weight: 600;
-        color: #2d3748;
-        font-size: 12px;
-    }
-
-    .form-group input {
-        padding: 8px 12px;
-        border: 1px solid #e2e8f0;
-        border-radius: 6px;
-        font-size: 13px;
-        transition: all 0.3s ease;
-        background: white;
-    }
-
-    .form-group input:focus {
-        outline: none;
-        border-color: #667eea;
-        box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
-    }
-
-    .result-section {
-        background: rgba(102, 126, 234, 0.05);
-        padding: 12px;
-        border-radius: 8px;
-        border-left: 3px solid #667eea;
-        margin-top: 8px;
-    }
-
-    .result-item {
-        text-align: center;
-    }
-
-    .result-value {
-        font-weight: 700;
-        color: #22c55e;
-        font-size: 16px;
-    }
-
-    .result-placeholder {
-        font-weight: 500;
-        color: #718096;
-        font-size: 14px;
-        font-style: italic;
-    }
-
-    .journal-actions {
-        display: flex;
-        gap: 10px;
-    }
-
-    .clear-btn {
-        background: #ff6b6b;
-        color: white;
-        border: none;
-        border-radius: 12px;
-        padding: 12px 20px;
-        cursor: pointer;
-        font-size: 14px;
-        font-weight: 600;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    .clear-btn:hover {
-        background: #ee5a52;
-        transform: translateY(-2px);
-        box-shadow: 0 6px 18px rgba(255, 107, 107, 0.4);
-    }
-
-    .delete-btn {
-        background: #ff6b6b;
-        color: white;
-        border: none;
-        border-radius: 8px;
-        padding: 8px 12px;
-        cursor: pointer;
-        font-size: 14px;
-        transition: all 0.3s ease;
-        box-shadow: 0 2px 8px rgba(255, 107, 107, 0.3);
-    }
-
-    .delete-btn:hover {
-        background: #ee5a52;
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(255, 107, 107, 0.4);
-    }
-
-    .empty-state {
-        text-align: center;
-        padding: 60px 20px;
-        background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(10px);
-        border-radius: 20px;
-        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
-    }
-
-    .empty-state h2 {
-        color: #2d3748;
-        margin-bottom: 10px;
-    }
-
-    .empty-state p {
-        color: #718096;
-        margin-bottom: 30px;
-        font-size: 1.1em;
-    }
-
-    .calc-btn {
-        display: inline-block;
-        padding: 15px 30px;
-        background: #667eea;
-        color: white;
-        text-decoration: none;
-        border-radius: 12px;
-        font-weight: 600;
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
-    }
-
-    .calc-btn:hover {
-        background: #764ba2;
-        transform: translateY(-2px);
-        box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
-    }
-
-    /* Адаптивность */
-    @media (max-width: 768px) {
-        .calculations-grid {
-            grid-template-columns: 1fr;
-        }
-
-        .calculation-header {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 10px;
-        }
-    }
-</style>
 </body>
 </html>

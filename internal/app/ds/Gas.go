@@ -8,3 +8,7 @@ type Gas struct {
 	ImageURL    string
 	Description string
 }
+
+func (Gas) TableName() string {
+	return "gas"
+}

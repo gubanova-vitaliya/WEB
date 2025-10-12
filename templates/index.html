@@ -7,7 +7,7 @@
 </head>
 <body>
 <header>
-    <a href="/gases" class="home-btn">🏠 Домой</a>
+    <a href="/gas" class="home-btn">🏠 Домой</a>
 </header>
 
 <main>
@@ -16,12 +16,12 @@
         <a href="/cart" class="cart-link">
             <span class="cart-icon">📋</span>
             Журнал расчетов
-            <span class="cart-count">{{.journalCount}}</span>
+            <span class="cart-count">0</span>
         </a>
     </div>
 
-    <form method="get" action="/gases" class="search-form">
-        <input type="text" name="query" placeholder="Поиск газа..." value="{{.query}}">
+    <form method="get" action="/gas" class="search-form">
+        <input type="text" name="search" placeholder="Поиск газа..." value="{{.search}}">
         <button type="submit">🔍 Поиск газа</button>
     </form>
 
@@ -29,12 +29,21 @@
         {{range .gases}}
         <div class="card">
             <h2>{{.Title}}</h2>
+            {{if .ImageURL}}
             <img src="{{.ImageURL}}" alt="{{.Title}}" width="150">
+            {{else}}
+            <div style="background: #ddd; width:150px; height:150px; display:flex; align-items:center; justify-content:center;">
+                No image
+            </div>
+            {{end}}
             <p><strong>Формула:</strong> {{.Formula}}</p>
-            <p><strong>Молярная масса:</strong> {{.MolarMass}} г/моль</p>
-            <p>{{.Description}}</p>
-            <a href="/gases/{{.ID}}" class="yellow-btn">📖 Подробнее</a>
+            <p><strong>Молярная масса:</strong> {{printf "%.2f" .MolarMass}} г/моль</p>
+            <p><strong>Описание:</strong> {{.Description}}</p>
+            <p><strong>ID:</strong> {{.ID}}</p>
+            <a href="/gas/{{.ID}}" class="yellow-btn">📖 Подробнее</a>
         </div>
+        {{else}}
+        <p>Газы не найдены</p>
         {{end}}
     </div>
 </main>

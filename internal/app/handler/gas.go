@@ -29,7 +29,7 @@ func (h *Handler) GetAllGases(ctx *gin.Context) {
 	}
 
 	ctx.HTML(http.StatusOK, "index.html", gin.H{
-		"data":   gas,
+		"gases":  gas,
 		"search": search,
 	})
 }

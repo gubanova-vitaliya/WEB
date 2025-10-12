@@ -24,8 +24,8 @@ func (h *Handler) RegisterHandler(router *gin.Engine) {
 
 // RegisterStatic То же самое, что и с маршрутами, регистрируем статику
 func (h *Handler) RegisterStatic(router *gin.Engine) {
-	router.LoadHTMLGlob("templates/index.html")
-	router.Static("/styles", "./resources/styles/index.css")
+	router.LoadHTMLGlob("templates/*.html")
+	router.Static("/static", "./resources")
 }
 
 // errorHandler для более удобного вывода ошибок

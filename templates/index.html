@@ -8,7 +8,7 @@
 <body>
 <header>
     <a href="/gas" class="home-btn">🏠 Домой</a>
-    
+
 </header>
 
 <main>
@@ -42,6 +42,7 @@
             <p><strong>Описание:</strong> {{.Description}}</p>
             <p><strong>ID:</strong> {{.ID}}</p>
             <a href="/gas/{{.ID}}" class="yellow-btn">📖 Подробнее</a>
+            <button class="add-to-cart-btn" data-gas-id="{{.ID}}" data-gas-title="{{.Title}}">➕ Добавить в расчеты</button>
         </div>
         {{else}}
         <p>Газы не найдены</p>

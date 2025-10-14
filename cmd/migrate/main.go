@@ -3,7 +3,6 @@ package main
 import (
 	"WEB/internal/app/ds"
 	"WEB/internal/app/dsn"
-
 	"github.com/joho/godotenv"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -19,6 +18,9 @@ func main() {
 	// Migrate the schema
 	err = db.AutoMigrate(
 		&ds.Gas{},
+		&ds.Calculation{},
+		&ds.GasCalculation{},
+		&ds.Users{},
 	)
 	if err != nil {
 		panic("cant migrate db")

@@ -2,128 +2,61 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>{{.gase.Title}} - Подробное описание</title>
+    <title>{{if .gas}}{{.gas.Title}} - Подробное описание{{else}}Газ не найден{{end}}</title>
     <link rel="stylesheet" href="/static/styles/index_style.css">
-    <style>
-        .gas-detail-container {
-            max-width: 800px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-
-        .gas-card {
-            background: white;
-            border-radius: 12px;
-            padding: 30px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            border: 1px solid #e7e8ec;
-        }
-
-        .gas-header {
-            text-align: center;
-            margin-bottom: 30px;
-            padding-bottom: 20px;
-            border-bottom: 2px solid #4680C2;
-        }
-
-        .gas-header h1 {
-            color: #222222;
-            font-size: 32px;
-            margin-bottom: 10px;
-        }
-
-        .gas-formula {
-            background: #4680C2;
-            color: white;
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-size: 18px;
-            font-weight: 600;
-            display: inline-block;
-        }
-
-        .gas-image {
-            text-align: center;
-            margin: 20px 0;
-        }
-
-        .gas-image img {
-            max-width: 300px;
-            border-radius: 12px;
-            border: 2px solid #e7e8ec;
-        }
-
-        .gas-properties {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 15px;
-            margin: 25px 0;
-        }
-
-        .property-card {
-            background: #f8f9fa;
-            padding: 15px;
-            border-radius: 8px;
-            text-align: center;
-            border-left: 4px solid #4680C2;
-        }
-
-        .property-label {
-            font-size: 14px;
-            color: #656565;
-            margin-bottom: 5px;
-        }
-
-        .property-value {
-            font-size: 18px;
-            color: #222222;
-            font-weight: 600;
-        }
-
-        .gas-description {
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-            padding: 20px;
-            border-radius: 12px;
-            border-left: 4px solid #1e88e5;
-            line-height: 1.6;
-            color: #444;
-            font-size: 16px;
-        }
-    </style>
+    <link rel="stylesheet" href="/static/styles/gas_detail.css">
 </head>
 <body>
 <header>
-    <a href="/gases" class="home-btn">🏠 Домой</a>
+    <a href="/gas" class="home-btn">🏠 Домой</a>
 </header>
 
 <main>
     <div class="gas-detail-container">
+        {{if .gas}}
         <div class="gas-card">
             <div class="gas-header">
-                <h1>{{.gase.Title}}</h1>
-                <span class="gas-formula">{{.gase.Formula}}</span>
+                <h1>{{.gas.Title}}</h1>
+                <span class="gas-formula">{{.gas.Formula}}</span>
             </div>
 
             <div class="gas-image">
-                <img src="{{.gase.ImageURL}}" alt="{{.gase.Title}}"
-                     onerror="this.src='https://via.placeholder.com/300x200/667eea/ffffff?text={{.gase.Title}}'">
+                {{if .gas.ImageURL}}
+                <img src="{{.gas.ImageURL}}" alt="{{.gas.Title}}"
+                     onerror="this.src='https://via.placeholder.com/300x200/667eea/ffffff?text=No+Image'">
+                {{else}}
+                <img src="https://via.placeholder.com/300x200/667eea/ffffff?text=No+Image" alt="No image">
+                {{end}}
             </div>
 
             <div class="gas-properties">
                 <div class="property-card">
                     <div class="property-label">Молярная масса</div>
-                    <div class="property-value">{{.gase.MolarMass}} г/моль</div>
+                    <div class="property-value">{{printf "%.2f" .gas.MolarMass}} г/моль</div>
                 </div>
                 <div class="property-card">
                     <div class="property-label">ID газа</div>
-                    <div class="property-value">#{{.gase.ID}}</div>
+                    <div class="property-value">#{{.gas.ID}}</div>
                 </div>
             </div>
 
             <div class="gas-description">
-                {{.gase.Description}}
+                {{if .gas.Description}}
+                {{.gas.Description}}
+                {{else}}
+                Описание отсутствует
+                {{end}}
             </div>
         </div>
+        {{else}}
+        <div class="gas-card">
+            <div class="not-found">
+                <h2>Газ не найден</h2>
+                <p>Запрошенный газ не существует или был удален</p>
+                <a href="/gas" class="yellow-btn">Вернуться к каталогу</a>
+            </div>
+        </div>
+        {{end}}
     </div>
 </main>
 </body>

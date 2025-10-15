@@ -15,6 +15,14 @@ type Calculation struct {
 	CreatorID   uint         `gorm:"not null"`
 	ModeratorID uint
 
+	// Поля для расчета давления в сосуде при нагреве идеального газа
+	InitialPressure    sql.NullFloat64 `gorm:"type:decimal(10,4);default:null"` // Начальное давление, Па
+	InitialTemperature sql.NullFloat64 `gorm:"type:decimal(10,4);default:null"` // Начальная температура, К
+	FinalTemperature   sql.NullFloat64 `gorm:"type:decimal(10,4);default:null"` // Конечная температура, К
+	Volume             sql.NullFloat64 `gorm:"type:decimal(10,4);default:null"` // Объем сосуда, м³
+	GasAmount          sql.NullFloat64 `gorm:"type:decimal(10,4);default:null"` // Количество вещества, моль
+	FinalPressure      sql.NullFloat64 `gorm:"type:decimal(10,4);default:null"` // Расчетное конечное давление, Па
+
 	Creator   Users `gorm:"foreignKey:CreatorID"`
 	Moderator Users `gorm:"foreignKey:ModeratorID"`
 }

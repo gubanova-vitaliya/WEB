@@ -34,6 +34,30 @@
     align-items: center;
     justify-content: center;
 }
+
+/* Стили для активной кнопки журнала */
+.cart-link.active {
+    background: #4680C2;
+    color: white;
+    cursor: pointer;
+}
+
+.cart-link.active:hover {
+    background: #3a6cb0;
+}
+
+/* Стили для неактивной кнопки журнала */
+.cart-link.inactive {
+    background: #cccccc !important;
+    color: #666666 !important;
+    cursor: not-allowed !important;
+    opacity: 0.6;
+}
+
+.cart-link.inactive:hover {
+    background: #cccccc !important;
+}
+
 /* Стили для сетки карточек */
 .grid {
     display: grid;
@@ -165,25 +189,6 @@ body {
 
 /* Стили для header */
 header {
-    background-color: white;
-    padding: 16px 20px;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
-
-.home-btn {
-    color: #4680C2;
-    text-decoration: none;
-    font-weight: 500;
-    padding: 8px 16px;
-    border-radius: 6px;
-    transition: background-color 0.2s ease;
-}
-
-.home-btn:hover {
-    background-color: #f0f0f0;
-}
-/* Стили для header - темно-синий вариант */
-header {
     background-color: #3a6cb0; /* Более темный синий */
     padding: 16px 20px;
     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
@@ -201,7 +206,8 @@ header {
 .home-btn:hover {
     background-color: rgba(255, 255, 255, 0.2);
 }
-/* Добавьте в static/styles/index_style.css */
+
+/* Стили для кнопок в карточках */
 .card-buttons {
     display: flex;
     gap: 10px;

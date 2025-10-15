@@ -1,0 +1,286 @@
+/* static/styles/journal_style.css */
+.journal-container {
+    max-width: 1800px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+.journal-header {
+    text-align: center;
+    margin-bottom: 30px;
+    padding: 30px;
+    background: linear-gradient(135deg, #4680C2 0%, #3a6cb0 100%);
+    border-radius: 12px;
+    color: white;
+}
+
+.journal-header h1 {
+    font-size: 32px;
+    margin-bottom: 8px;
+    color: white;
+    font-weight: 600;
+}
+
+.journal-subtitle {
+    font-size: 16px;
+    opacity: 0.9;
+    margin: 0;
+    font-weight: 400;
+}
+
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.cart-info {
+    background: #f8f9fa;
+    padding: 10px 15px;
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+.calculations-table-container {
+    background: white;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+.calculations-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.calculations-table th {
+    background: #4680C2;
+    color: white;
+    padding: 12px 8px;
+    text-align: center;
+    font-weight: 600;
+    border: none;
+    white-space: nowrap;
+}
+
+.calculations-table td {
+    padding: 10px 8px;
+    border-bottom: 1px solid #e7e8ec;
+    vertical-align: middle;
+    text-align: center;
+}
+
+.calculations-table tr:last-child td {
+    border-bottom: none;
+}
+
+.calculations-table tr:hover {
+    background: #f8f9fa;
+}
+
+.gas-info-cell {
+    text-align: left;
+}
+
+.gas-main-info {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
+.gas-name {
+    font-weight: 600;
+    color: #222222;
+    text-align: center;
+}
+
+.gas-image {
+    width: 40px;
+    height: 40px;
+    border-radius: 6px;
+    object-fit: cover;
+}
+
+.gas-formula-cell {
+    text-align: center;
+}
+
+.gas-formula {
+    background: #4680C2;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 8px;
+    font-weight: 500;
+    font-size: 12px;
+}
+
+.gas-mass {
+    color: #656565;
+    font-size: 12px;
+}
+
+.input-cell {
+    min-width: 120px;
+}
+
+.param-input {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid #d3d9de;
+    border-radius: 4px;
+    font-size: 12px;
+    text-align: center;
+}
+
+.param-input:focus {
+    outline: none;
+    border-color: #4680C2;
+    box-shadow: 0 0 0 2px rgba(70, 128, 194, 0.2);
+}
+
+.param-input::placeholder {
+    color: #99a2ad;
+    font-size: 11px;
+}
+
+.result-cell {
+    min-width: 100px;
+}
+
+.final-pressure-value {
+    font-weight: 600;
+    color: #28a745;
+}
+
+.not-calculated {
+    color: #99a2ad;
+    font-style: italic;
+    font-size: 11px;
+}
+
+.actions-cell {
+    min-width: 80px;
+}
+
+.calculate-gas-btn,
+.remove-gas-btn {
+    padding: 6px 8px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    margin: 2px;
+    transition: all 0.2s;
+}
+
+.calculate-gas-btn {
+    background: #28a745;
+    color: white;
+}
+
+.calculate-gas-btn:hover {
+    background: #218838;
+}
+
+.remove-gas-btn {
+    background: #dc3545;
+    color: white;
+}
+
+.remove-gas-btn:hover {
+    background: #c82333;
+}
+
+.calculation-actions {
+    padding: 20px;
+    text-align: center;
+    background: #f8f9fa;
+    border-top: 1px solid #e7e8ec;
+}
+
+.calculate-all-btn,
+.clear-all-btn {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    margin: 0 10px;
+    transition: all 0.2s;
+}
+
+.calculate-all-btn {
+    background: #28a745;
+    color: white;
+}
+
+.calculate-all-btn:hover {
+    background: #218838;
+}
+
+.clear-all-btn {
+    background: #6c757d;
+    color: white;
+}
+
+.clear-all-btn:hover {
+    background: #5a6268;
+}
+
+.empty-journal {
+    text-align: center;
+    padding: 60px 20px;
+    background: white;
+    border-radius: 12px;
+    border: 2px dashed #d3d9de;
+    margin: 20px 0;
+}
+
+.empty-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+    opacity: 0.5;
+}
+
+.empty-journal h3 {
+    color: #222222;
+    margin-bottom: 8px;
+    font-size: 20px;
+    font-weight: 600;
+}
+
+.empty-journal p {
+    color: #656565;
+    margin-bottom: 24px;
+    font-size: 14px;
+}
+
+.btn-primary {
+    padding: 10px 20px;
+    background: #4680C2;
+    color: white;
+    text-decoration: none;
+    border-radius: 6px;
+    font-weight: 500;
+    transition: background 0.2s;
+}
+
+.btn-primary:hover {
+    background: #3a6cb0;
+}
+
+/* Адаптивность */
+@media (max-width: 1200px) {
+    .calculations-table-container {
+        overflow-x: auto;
+    }
+
+    .calculations-table {
+        min-width: 1200px;
+    }
+}

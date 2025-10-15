@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Журнал расчетов</title>
+    <link rel="stylesheet" href="/static/styles/journal_style.css">
+</head>
+<body>
+<header>
+    <a href="/gas" class="home-btn">🏠 Домой</a>
+</header>
+
+<main>
+    <div class="journal-container">
+        <div class="journal-header">
+            <h1>🧪 Журнал расчетов давления</h1>
+        </div>
+
+        {{if .gases}}
+        <div class="calculations-table-container">
+            <table class="calculations-table">
+                <thead>
+                <tr>
+                    <th>Газ</th>
+                    <th>Формула</th>
+                    <th>Молярная масса</th>
+                    <th>Начальное давление (Па)</th>
+                    <th>Начальная температура (K)</th>
+                    <th>Конечная температура (K)</th>
+                    <th>Объем (м³)</th>
+                    <th>Количество вещества (моль)</th>
+                    <th>Конечное давление</th>
+                    <th>Действия</th>
+                </tr>
+                </thead>
+                <tbody>
+                {{range .gases}}
+                <tr data-gas-calculation-id="{{.gas_calculation_id}}">
+                    <td class="gas-info-cell">
+                        <div class="gas-main-info">
+                            <div class="gas-name">{{.gas_title}}</div>
+                            {{if .gas_image_url}}
+                            <img src="{{.gas_image_url}}" alt="{{.gas_title}}" class="gas-image">
+                            {{end}}
+                        </div>
+                    </td>
+                    <td class="gas-formula-cell">
+                        <span class="gas-formula">{{.gas_formula}}</span>
+                    </td>
+                    <td class="gas-mass">
+                        {{printf "%.2f" .gas_molar_mass}} г/моль
+                    </td>
+                    <td class="input-cell">
+                        <input type="number"
+                               class="param-input"
+                               data-param="initial_pressure"
+                               placeholder="—"
+                               step="0.001"
+                               value="{{if .initial_pressure}}{{.initial_pressure}}{{end}}">
+                    </td>
+                    <td class="input-cell">
+                        <input type="number"
+                               class="param-input"
+                               data-param="initial_temperature"
+                               placeholder="—"
+                               step="0.001"
+                               value="{{if .initial_temperature}}{{.initial_temperature}}{{end}}">
+                    </td>
+                    <td class="input-cell">
+                        <input type="number"
+                               class="param-input"
+                               data-param="final_temperature"
+                               placeholder="—"
+                               step="0.001"
+                               value="{{if .final_temperature}}{{.final_temperature}}{{end}}">
+                    </td>
+                    <td class="input-cell">
+                        <input type="number"
+                               class="param-input"
+                               data-param="volume"
+                               placeholder="—"
+                               step="0.000001"
+                               value="{{if .volume}}{{.volume}}{{end}}">
+                    </td>
+                    <td class="input-cell">
+                        <input type="number"
+                               class="param-input"
+                               data-param="gas_amount"
+                               placeholder="—"
+                               step="0.001"
+                               value="{{if .gas_amount}}{{.gas_amount}}{{end}}">
+                    </td>
+                    <td class="result-cell">
+                        {{if .final_pressure}}
+                        <span class="final-pressure-value">{{printf "%.2f" .final_pressure}}</span> Па
+                        {{else}}
+                        <span class="not-calculated">—</span>
+                        {{end}}
+                    </td>
+                    <td class="actions-cell">
+                        <button class="calculate-gas-btn"
+                                data-gas-calculation-id="{{.gas_calculation_id}}"
+                                title="Рассчитать давление">
+                            🧮
+                        </button>
+                        <button class="remove-gas-btn"
+                                data-gas-calculation-id="{{.gas_calculation_id}}"
+                                title="Удалить из расчета">
+                            ❌
+                        </button>
+                    </td>
+                </tr>
+                {{end}}
+                </tbody>
+            </table>
+
+            <div class="calculation-actions">
+                <button class="clear-all-btn">
+                    🗑️ Очистить все
+                </button>
+            </div>
+        </div>
+        {{else}}
+        <div class="empty-journal">
+            <div class="empty-icon">📝</div>
+            <h3>Журнал расчетов пуст</h3>
+        </div>
+        {{end}}
+    </div>
+</main>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Обработка изменения параметров
+        document.querySelectorAll('.param-input').forEach(input => {
+            input.addEventListener('change', function() {
+                const row = this.closest('tr');
+                const gasCalculationId = row.getAttribute('data-gas-calculation-id');
+                const param = this.getAttribute('data-param');
+                const value = this.value;
+
+                if (value && gasCalculationId) {
+                    updateCalculationParams(gasCalculationId, param, value);
+                }
+            });
+        });
+
+        // Расчет для одного газа
+        document.querySelectorAll('.calculate-gas-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const gasCalculationId = this.getAttribute('data-gas-calculation-id');
+                calculateGasPressure(gasCalculationId);
+            });
+        });
+
+        // Удаление газа из расчета
+        document.querySelectorAll('.remove-gas-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const gasCalculationId = this.getAttribute('data-gas-calculation-id');
+                removeGasFromCalculation(gasCalculationId);
+            });
+        });
+
+        // Очистка всех газов
+        const clearAllBtn = document.querySelector('.clear-all-btn');
+        if (clearAllBtn) {
+            clearAllBtn.addEventListener('click', function() {
+                clearAllGases();
+            });
+        }
+    });
+
+    function updateCalculationParams(gasCalculationId, param, value) {
+        const data = {};
+        data[param] = parseFloat(value);
+
+        fetch(`/calculation/${gasCalculationId}/update`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(data)
+        })
+            .then(response => response.json())
+            .then(data => {
+                // Без уведомлений
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+    }
+
+    function calculateGasPressure(gasCalculationId) {
+        fetch(`/calculation/${gasCalculationId}/calculate`, {
+            method: 'POST'
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Тихое обновление страницы
+                    location.reload();
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+    }
+
+    function removeGasFromCalculation(gasCalculationId) {
+        fetch(`/calculation/gas/${gasCalculationId}/remove`, {
+            method: 'POST'
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    const row = document.querySelector(`[data-gas-calculation-id="${gasCalculationId}"]`);
+                    if (row) {
+                        row.remove();
+                    }
+
+                    // Проверяем, остались ли еще газы
+                    const remainingGases = document.querySelectorAll('[data-gas-calculation-id]');
+                    if (remainingGases.length === 0) {
+                        location.reload();
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+    }
+
+    function clearAllGases() {
+        fetch('/calculation/clear-all', {
+            method: 'POST'
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    location.reload();
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+    }
+</script>
+</body>
+</html>

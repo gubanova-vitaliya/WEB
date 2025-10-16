@@ -35,7 +35,7 @@
                 </thead>
                 <tbody>
                 {{range .gases}}
-                <tr data-gas-calculation-id="{{.gas_calculation_id}}">
+                <tr>
                     <td class="gas-info-cell">
                         <div class="gas-main-info">
                             <div class="gas-name">{{.gas_title}}</div>
@@ -50,46 +50,56 @@
                     <td class="gas-mass">
                         {{printf "%.2f" .gas_molar_mass}} г/моль
                     </td>
-                    <td class="input-cell">
-                        <input type="number"
-                               class="param-input"
-                               data-param="initial_pressure"
-                               placeholder="—"
-                               step="0.001"
-                               value="{{if .initial_pressure}}{{.initial_pressure}}{{end}}">
-                    </td>
-                    <td class="input-cell">
-                        <input type="number"
-                               class="param-input"
-                               data-param="initial_temperature"
-                               placeholder="—"
-                               step="0.001"
-                               value="{{if .initial_temperature}}{{.initial_temperature}}{{end}}">
-                    </td>
-                    <td class="input-cell">
-                        <input type="number"
-                               class="param-input"
-                               data-param="final_temperature"
-                               placeholder="—"
-                               step="0.001"
-                               value="{{if .final_temperature}}{{.final_temperature}}{{end}}">
-                    </td>
-                    <td class="input-cell">
-                        <input type="number"
-                               class="param-input"
-                               data-param="volume"
-                               placeholder="—"
-                               step="0.000001"
-                               value="{{if .volume}}{{.volume}}{{end}}">
-                    </td>
-                    <td class="input-cell">
-                        <input type="number"
-                               class="param-input"
-                               data-param="gas_amount"
-                               placeholder="—"
-                               step="0.001"
-                               value="{{if .gas_amount}}{{.gas_amount}}{{end}}">
-                    </td>
+
+                    <!-- Форма для обновления параметров -->
+                    <form method="post" action="/calculation/{{.gas_calculation_id}}/update" class="param-form">
+                        <td class="input-cell">
+                            <input type="number"
+                                   name="initial_pressure"
+                                   class="param-input"
+                                   placeholder="—"
+                                   step="0.001"
+                                   value="{{if .initial_pressure}}{{.initial_pressure}}{{end}}"
+                                   onchange="this.form.submit()">
+                        </td>
+                        <td class="input-cell">
+                            <input type="number"
+                                   name="initial_temperature"
+                                   class="param-input"
+                                   placeholder="—"
+                                   step="0.001"
+                                   value="{{if .initial_temperature}}{{.initial_temperature}}{{end}}"
+                                   onchange="this.form.submit()">
+                        </td>
+                        <td class="input-cell">
+                            <input type="number"
+                                   name="final_temperature"
+                                   class="param-input"
+                                   placeholder="—"
+                                   step="0.001"
+                                   value="{{if .final_temperature}}{{.final_temperature}}{{end}}"
+                                   onchange="this.form.submit()">
+                        </td>
+                        <td class="input-cell">
+                            <input type="number"
+                                   name="volume"
+                                   class="param-input"
+                                   placeholder="—"
+                                   step="0.000001"
+                                   value="{{if .volume}}{{.volume}}{{end}}"
+                                   onchange="this.form.submit()">
+                        </td>
+                        <td class="input-cell">
+                            <input type="number"
+                                   name="gas_amount"
+                                   class="param-input"
+                                   placeholder="—"
+                                   step="0.001"
+                                   value="{{if .gas_amount}}{{.gas_amount}}{{end}}"
+                                   onchange="this.form.submit()">
+                        </td>
+                    </form>
+
                     <td class="result-cell">
                         {{if .final_pressure}}
                         <span class="final-pressure-value">{{printf "%.2f" .final_pressure}}</span> Па
@@ -98,16 +108,19 @@
                         {{end}}
                     </td>
                     <td class="actions-cell">
-                        <button class="calculate-gas-btn"
-                                data-gas-calculation-id="{{.gas_calculation_id}}"
-                                title="Рассчитать давление">
-                            🧮
-                        </button>
-                        <button class="remove-gas-btn"
-                                data-gas-calculation-id="{{.gas_calculation_id}}"
-                                title="Удалить из расчета">
-                            ❌
-                        </button>
+                        <!-- Отдельная форма для расчета -->
+                        <form method="post" action="/calculation/{{.gas_calculation_id}}/calculate" style="display: inline;">
+                            <button type="submit" class="calculate-gas-btn" title="Рассчитать давление">
+                                🧮
+                            </button>
+                        </form>
+
+                        <!-- Отдельная форма для удаления -->
+                        <form method="post" action="/calculation/gas/{{.gas_calculation_id}}/remove" style="display: inline;">
+                            <button type="submit" class="remove-gas-btn" title="Удалить из расчета">
+                                ❌
+                            </button>
+                        </form>
                     </td>
                 </tr>
                 {{end}}
@@ -115,9 +128,11 @@
             </table>
 
             <div class="calculation-actions">
-                <button class="clear-all-btn">
-                    🗑️ Очистить все
-                </button>
+                <form method="post" action="/calculation/clear-all" style="display: inline;">
+                    <button type="submit" class="clear-all-btn">
+                        🗑️ Очистить все
+                    </button>
+                </form>
             </div>
         </div>
         {{else}}
@@ -128,122 +143,5 @@
         {{end}}
     </div>
 </main>
-
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Обработка изменения параметров
-        document.querySelectorAll('.param-input').forEach(input => {
-            input.addEventListener('change', function() {
-                const row = this.closest('tr');
-                const gasCalculationId = row.getAttribute('data-gas-calculation-id');
-                const param = this.getAttribute('data-param');
-                const value = this.value;
-
-                if (value && gasCalculationId) {
-                    updateCalculationParams(gasCalculationId, param, value);
-                }
-            });
-        });
-
-        // Расчет для одного газа
-        document.querySelectorAll('.calculate-gas-btn').forEach(button => {
-            button.addEventListener('click', function() {
-                const gasCalculationId = this.getAttribute('data-gas-calculation-id');
-                calculateGasPressure(gasCalculationId);
-            });
-        });
-
-        // Удаление газа из расчета
-        document.querySelectorAll('.remove-gas-btn').forEach(button => {
-            button.addEventListener('click', function() {
-                const gasCalculationId = this.getAttribute('data-gas-calculation-id');
-                removeGasFromCalculation(gasCalculationId);
-            });
-        });
-
-        // Очистка всех газов
-        const clearAllBtn = document.querySelector('.clear-all-btn');
-        if (clearAllBtn) {
-            clearAllBtn.addEventListener('click', function() {
-                clearAllGases();
-            });
-        }
-    });
-
-    function updateCalculationParams(gasCalculationId, param, value) {
-        const data = {};
-        data[param] = parseFloat(value);
-
-        fetch(`/calculation/${gasCalculationId}/update`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(data)
-        })
-            .then(response => response.json())
-            .then(data => {
-                // Без уведомлений
-            })
-            .catch(error => {
-                console.error('Error:', error);
-            });
-    }
-
-    function calculateGasPressure(gasCalculationId) {
-        fetch(`/calculation/${gasCalculationId}/calculate`, {
-            method: 'POST'
-        })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    // Тихое обновление страницы
-                    location.reload();
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-            });
-    }
-
-    function removeGasFromCalculation(gasCalculationId) {
-        fetch(`/calculation/gas/${gasCalculationId}/remove`, {
-            method: 'POST'
-        })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    const row = document.querySelector(`[data-gas-calculation-id="${gasCalculationId}"]`);
-                    if (row) {
-                        row.remove();
-                    }
-
-                    // Проверяем, остались ли еще газы
-                    const remainingGases = document.querySelectorAll('[data-gas-calculation-id]');
-                    if (remainingGases.length === 0) {
-                        location.reload();
-                    }
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-            });
-    }
-
-    function clearAllGases() {
-        fetch('/calculation/clear-all', {
-            method: 'POST'
-        })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    location.reload();
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-            });
-    }
-</script>
 </body>
 </html>

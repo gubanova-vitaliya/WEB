@@ -33,10 +33,8 @@ func (h *Handler) AddGasToCalculation(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"status": "success",
-		"count":  h.Repository.GetCartCount(),
-	})
+	// Редирект обратно на страницу газов
+	ctx.Redirect(http.StatusFound, "/gas")
 }
 
 // GetJournal отображает журнал расчетов с добавленными газами
@@ -65,10 +63,39 @@ func (h *Handler) UpdateCalculationParams(ctx *gin.Context) {
 		return
 	}
 
-	var data map[string]interface{}
-	if err := ctx.BindJSON(&data); err != nil {
-		h.errorHandler(ctx, http.StatusBadRequest, err)
-		return
+	// Получаем данные из формы
+	initialPressure := ctx.PostForm("initial_pressure")
+	initialTemperature := ctx.PostForm("initial_temperature")
+	finalTemperature := ctx.PostForm("final_temperature")
+	volume := ctx.PostForm("volume")
+	gasAmount := ctx.PostForm("gas_amount")
+
+	data := make(map[string]interface{})
+
+	if initialPressure != "" {
+		if val, err := strconv.ParseFloat(initialPressure, 64); err == nil {
+			data["initial_pressure"] = val
+		}
+	}
+	if initialTemperature != "" {
+		if val, err := strconv.ParseFloat(initialTemperature, 64); err == nil {
+			data["initial_temperature"] = val
+		}
+	}
+	if finalTemperature != "" {
+		if val, err := strconv.ParseFloat(finalTemperature, 64); err == nil {
+			data["final_temperature"] = val
+		}
+	}
+	if volume != "" {
+		if val, err := strconv.ParseFloat(volume, 64); err == nil {
+			data["volume"] = val
+		}
+	}
+	if gasAmount != "" {
+		if val, err := strconv.ParseFloat(gasAmount, 64); err == nil {
+			data["gas_amount"] = val
+		}
 	}
 
 	// TODO: Заменить на реальный ID из авторизации
@@ -80,9 +107,8 @@ func (h *Handler) UpdateCalculationParams(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"status": "success",
-	})
+	// Редирект обратно в журнал
+	ctx.Redirect(http.StatusFound, "/journal")
 }
 
 // RemoveGasFromCalculation удаляет газ из расчета
@@ -103,10 +129,8 @@ func (h *Handler) RemoveGasFromCalculation(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"status": "success",
-		"count":  h.Repository.GetCartCount(),
-	})
+	// Редирект обратно в журнал
+	ctx.Redirect(http.StatusFound, "/journal")
 }
 
 // CalculatePressure рассчитывает конечное давление
@@ -131,16 +155,14 @@ func (h *Handler) CalculatePressure(ctx *gin.Context) {
 	// Ищем нужный газ
 	var calculationData map[string]interface{}
 	for _, gas := range gases {
-		if gasID, ok := gas["gas_calculation_id"].(uint); ok && gasID == uint(gasCalculationID) {
+		if gasCalcID, ok := gas["gas_calculation_id"].(uint); ok && gasCalcID == uint(gasCalculationID) {
 			calculationData = gas
 			break
 		}
 	}
 
 	if calculationData == nil {
-		ctx.JSON(http.StatusNotFound, gin.H{
-			"status": "error",
-		})
+		ctx.Redirect(http.StatusFound, "/journal")
 		return
 	}
 
@@ -151,9 +173,7 @@ func (h *Handler) CalculatePressure(ctx *gin.Context) {
 
 	// Проверяем, что все необходимые данные есть
 	if initialPressure == 0 || initialTemperature == 0 || finalTemperature == 0 {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"status": "error",
-		})
+		ctx.Redirect(http.StatusFound, "/journal")
 		return
 	}
 
@@ -169,10 +189,8 @@ func (h *Handler) CalculatePressure(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"status":         "success",
-		"final_pressure": finalPressure,
-	})
+	// Редирект обратно в журнал
+	ctx.Redirect(http.StatusFound, "/journal")
 }
 
 // ClearAllCalculations очищает все расчеты
@@ -186,8 +204,6 @@ func (h *Handler) ClearAllCalculations(ctx *gin.Context) {
 		return
 	}
 
-	ctx.JSON(http.StatusOK, gin.H{
-		"status": "success",
-		"count":  0,
-	})
+	// Редирект обратно в журнал
+	ctx.Redirect(http.StatusFound, "/journal")
 }

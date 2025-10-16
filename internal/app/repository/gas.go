@@ -30,5 +30,3 @@ func (r *Repository) SearchGasesByTitle(title string) ([]ds.Gas, error) {
 	}
 	return gas, nil
 }
-
-// УДАЛИТЬ весь метод GetCartCount отсюда - он уже есть в calculation.go

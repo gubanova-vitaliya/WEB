@@ -20,7 +20,7 @@
             <span class="cart-count">{{.cart_count}}</span>
         </a>
         {{else}}
-        <a href="#" class="cart-link inactive" onclick="return false;">
+        <a href="#" class="cart-link inactive">
             <span class="cart-icon">📋</span>
             Журнал расчетов
             <span class="cart-count">0</span>
@@ -49,73 +49,15 @@
             <p><strong>Описание:</strong> {{.Description}}</p>
             <p><strong>ID:</strong> {{.ID}}</p>
             <a href="/gas/{{.ID}}" class="yellow-btn">📖 Подробнее</a>
-            <button class="add-to-cart-btn" data-gas-id="{{.ID}}">➕ Добавить в расчеты</button>
+            <form method="post" action="/calculation/add-gas" style="margin-top: 10px;">
+                <input type="hidden" name="gas_id" value="{{.ID}}">
+                <button type="submit" class="add-to-cart-btn">➕ Добавить в расчеты</button>
+            </form>
         </div>
         {{else}}
         <p>Газы не найдены</p>
         {{end}}
     </div>
 </main>
-
-<script>
-    function addToCalculation(button) {
-        const gasId = button.getAttribute('data-gas-id');
-
-        const formData = new FormData();
-        formData.append('gas_id', gasId);
-
-        fetch('/calculation/add-gas', {
-            method: 'POST',
-            body: formData
-        })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    // Тихое обновление счетчика без уведомления
-                    updateCartCount(data.count);
-                    updateJournalButton(data.count);
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-            });
-    }
-
-    function updateCartCount(count) {
-        const cartCountElements = document.querySelectorAll('.cart-count');
-        cartCountElements.forEach(element => {
-            element.textContent = count;
-        });
-    }
-
-    function updateJournalButton(count) {
-        const cartLink = document.querySelector('.cart-link');
-        const cartCount = document.querySelector('.cart-count');
-
-        if (count > 0) {
-            // Активируем кнопку
-            cartLink.classList.remove('inactive');
-            cartLink.classList.add('active');
-            cartLink.href = '/journal';
-            cartLink.onclick = null;
-        } else {
-            // Деактивируем кнопку
-            cartLink.classList.remove('active');
-            cartLink.classList.add('inactive');
-            cartLink.href = '#';
-            cartLink.onclick = function() { return false; };
-        }
-    }
-
-    // Добавляем обработчики событий для всех кнопок добавления
-    document.addEventListener('DOMContentLoaded', function() {
-        const addButtons = document.querySelectorAll('.add-to-cart-btn');
-        addButtons.forEach(button => {
-            button.addEventListener('click', function() {
-                addToCalculation(this);
-            });
-        });
-    });
-</script>
 </body>
 </html>

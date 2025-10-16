@@ -14,7 +14,7 @@
     <div class="journal-container">
         <div class="journal-header">
             <h1>🧪 Журнал расчетов</h1>
-            <p>Всего расчетов: {{len .gases}}</p>
+            <p>Всего газов в расчете: {{len .gases}}</p>
         </div>
 
         {{if .gases}}
@@ -25,6 +25,11 @@
                     <th>Газ</th>
                     <th>Формула</th>
                     <th>Молярная масса</th>
+                    <th>Начальное давление (Па)</th>
+                    <th>Начальная температура (К)</th>
+                    <th>Конечная температура (К)</th>
+                    <th>Объем сосуда (м³)</th>
+                    <th>Количество вещества (моль)</th>
                     <th>Действия</th>
                 </tr>
                 </thead>
@@ -45,11 +50,41 @@
                     <td class="gas-mass">
                         {{printf "%.2f" .gas_molar_mass}} г/моль
                     </td>
+                    <td class="param-cell">
+                        <input type="number" step="0.0001"
+                               name="initial_pressure_{{.gas_calculation_id}}"
+                               placeholder="101325.0"
+                               value="{{.initial_pressure}}">
+                    </td>
+                    <td class="param-cell">
+                        <input type="number" step="0.0001"
+                               name="initial_temperature_{{.gas_calculation_id}}"
+                               placeholder="273.15"
+                               value="{{.initial_temperature}}">
+                    </td>
+                    <td class="param-cell">
+                        <input type="number" step="0.0001"
+                               name="final_temperature_{{.gas_calculation_id}}"
+                               placeholder="373.15"
+                               value="{{.final_temperature}}">
+                    </td>
+                    <td class="param-cell">
+                        <input type="number" step="0.0001"
+                               name="volume_{{.gas_calculation_id}}"
+                               placeholder="0.001"
+                               value="{{.volume}}">
+                    </td>
+                    <td class="param-cell">
+                        <input type="number" step="0.0001"
+                               name="gas_amount_{{.gas_calculation_id}}"
+                               placeholder="0.1"
+                               value="{{.gas_amount}}">
+                    </td>
                     <td class="actions-cell">
-                        <!-- Форма для логического удаления -->
-                        <form method="post" action="/calculation/{{.gas_calculation_id}}/remove" style="display: inline;">
+                        <form method="post" action="/calculation/{{.gas_calculation_id}}/remove"
+                              class="remove-form">
                             <button type="submit" class="remove-gas-btn" title="Удалить из расчета">
-                                ❌ Удалить
+                                ❌
                             </button>
                         </form>
                     </td>

@@ -2,6 +2,8 @@ package handler
 
 import (
 	"WEB/internal/app/repository"
+	"os"
+	"path/filepath"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
@@ -17,8 +19,16 @@ func NewHandler(r *repository.Repository) *Handler {
 	}
 }
 
+// errorHandler для более удобного вывода ошибок
+func (h *Handler) errorHandler(ctx *gin.Context, errorStatusCode int, err error) {
+	logrus.Error(err.Error())
+	ctx.JSON(errorStatusCode, gin.H{
+		"status":      "error",
+		"description": err.Error(),
+	})
+}
+
 // RegisterHandler Функция, в которой мы отдельно регистрируем маршруты, чтобы не писать все в одном месте
-// handler/handler.go
 func (h *Handler) RegisterHandler(router *gin.Engine) {
 	// 1. GET-запрос на просмотр всех карточек на главной странице
 	router.GET("/gas", h.GetAllGases)
@@ -38,15 +48,122 @@ func (h *Handler) RegisterHandler(router *gin.Engine) {
 
 // RegisterStatic То же самое, что и с маршрутами, регистрируем статику
 func (h *Handler) RegisterStatic(router *gin.Engine) {
-	router.LoadHTMLGlob("templates/*.html")
-	router.Static("/static", "./resources")
+	// Определяем корректные пути до шаблонов и статики независимо от рабочей директории
+	templatesGlob := "templates/*.html"
+	staticDir := "./resources"
+
+	if _, err := os.Stat("templates"); err != nil {
+		// если запускают из cmd/GaseProject, поднимемся на два уровня
+		altTemplates := filepath.FromSlash("../../templates/*.html")
+		altStatic := filepath.FromSlash("../../resources")
+		templatesGlob = altTemplates
+		staticDir = altStatic
+	}
+
+	router.LoadHTMLGlob(templatesGlob)
+	router.Static("/static", staticDir)
 }
 
-// errorHandler для более удобного вывода ошибок
-func (h *Handler) errorHandler(ctx *gin.Context, errorStatusCode int, err error) {
-	logrus.Error(err.Error())
-	ctx.JSON(errorStatusCode, gin.H{
-		"status":      "error",
-		"description": err.Error(),
-	})
+// RegisterAPI регистрирует REST API с префиксом /api
+func (h *Handler) RegisterAPI(router *gin.Engine) {
+	api := router.Group("/api")
+
+	// Домен услуги (газ)
+	api.GET("/gases", h.ApiGetGases)
+	api.GET("/gases/:id", h.ApiGetGas)
+	api.POST("/gases", h.ApiCreateGas)
+	api.PUT("/gases/:id", h.ApiUpdateGas)
+	api.DELETE("/gases/:id", h.ApiDeleteGas)
+	api.POST("/gases/:id/image", h.ApiUploadGasImage)
+	api.POST("/gases/:id/add-to-draft", h.ApiAddGasToDraft)
+
+	// Домен заявки (журнал/корзина)
+	api.GET("/cart", h.ApiGetCart)
+	// Заявки
+	api.GET("/calculations", h.ApiListCalculations)
+	api.GET("/calculations/:id", h.ApiGetCalculation)
+	api.PUT("/calculations/:id", h.ApiUpdateCalculation)
+	api.PUT("/calculations/:id/submit", h.ApiSubmitCalculation)
+	api.PUT("/calculations/:id/complete", h.ApiCompleteCalculation)
+	api.PUT("/calculations/:id/reject", h.ApiRejectCalculation)
+	api.DELETE("/calculations/:id", h.ApiDeleteCalculation)
+
+	// Домен m-m
+	api.DELETE("/mm/gas/:id", h.ApiMMDelete)
+	api.PUT("/mm/gas/:id", h.ApiMMUpdate)
+
+	// Домен пользователь
+	api.POST("/auth/register", h.ApiRegister)
+	api.POST("/auth/login", h.ApiLogin)
+	api.POST("/auth/logout", h.ApiLogout)
+	api.GET("/users/me", h.ApiMe)
+	api.PUT("/users/me", h.ApiUpdateMe)
+}
+
+// -------- Users ----------
+type apiRegisterReq struct {
+	Login    string `json:"login" binding:"required"`
+	Password string `json:"password" binding:"required"`
+}
+
+type apiLoginReq struct {
+	Login    string `json:"login" binding:"required"`
+	Password string `json:"password" binding:"required"`
+}
+
+func (h *Handler) ApiRegister(ctx *gin.Context) {
+	var req apiRegisterReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		h.errorHandler(ctx, 400, err)
+		return
+	}
+	if err := h.Repository.UserRegister(req.Login, req.Password); err != nil {
+		h.errorHandler(ctx, 400, err)
+		return
+	}
+	ctx.Status(201)
+}
+
+func (h *Handler) ApiLogin(ctx *gin.Context) {
+	var req apiLoginReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		h.errorHandler(ctx, 400, err)
+		return
+	}
+	if err := h.Repository.UserLogin(req.Login, req.Password); err != nil {
+		h.errorHandler(ctx, 401, err)
+		return
+	}
+	ctx.Status(204)
+}
+
+func (h *Handler) ApiLogout(ctx *gin.Context) {
+	h.Repository.UserLogout()
+	ctx.Status(204)
+}
+
+func (h *Handler) ApiMe(ctx *gin.Context) {
+	u, err := h.Repository.UserMe()
+	if err != nil {
+		h.errorHandler(ctx, 401, err)
+		return
+	}
+	ctx.JSON(200, u)
+}
+
+type apiUpdateMeReq struct {
+	Login *string `json:"login"`
+}
+
+func (h *Handler) ApiUpdateMe(ctx *gin.Context) {
+	var req apiUpdateMeReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		h.errorHandler(ctx, 400, err)
+		return
+	}
+	if err := h.Repository.UserUpdateMe(req.Login); err != nil {
+		h.errorHandler(ctx, 400, err)
+		return
+	}
+	ctx.Status(204)
 }

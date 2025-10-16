@@ -54,3 +54,146 @@ func (h *Handler) GetGasById(ctx *gin.Context) {
 		"cart_count": h.Repository.GetCartCount(),
 	})
 }
+
+// -------- REST API --------
+
+type apiGasCreate struct {
+	Title       string  `json:"title" binding:"required"`
+	Formula     string  `json:"formula" binding:"required"`
+	MolarMass   float64 `json:"molar_mass" binding:"required"`
+	Description string  `json:"description"`
+}
+
+type apiGasUpdate struct {
+	Title       *string  `json:"title"`
+	Formula     *string  `json:"formula"`
+	MolarMass   *float64 `json:"molar_mass"`
+	Description *string  `json:"description"`
+}
+
+// ApiGetGases GET /api/gases?search=...
+func (h *Handler) ApiGetGases(ctx *gin.Context) {
+	search := ctx.Query("search")
+	gases, err := h.Repository.GasList(search)
+	if err != nil {
+		h.errorHandler(ctx, http.StatusInternalServerError, err)
+		return
+	}
+	ctx.JSON(http.StatusOK, gases)
+}
+
+// ApiGetGas GET /api/gases/:id
+func (h *Handler) ApiGetGas(ctx *gin.Context) {
+	id, err := strconv.Atoi(ctx.Param("id"))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+	gas, err := h.Repository.GetGasByID(id)
+	if err != nil {
+		h.errorHandler(ctx, http.StatusInternalServerError, err)
+		return
+	}
+	ctx.JSON(http.StatusOK, gas)
+}
+
+// ApiCreateGas POST /api/gases
+func (h *Handler) ApiCreateGas(ctx *gin.Context) {
+	var req apiGasCreate
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	gas := ds.Gas{
+		Title:       req.Title,
+		Formula:     req.Formula,
+		MolarMass:   req.MolarMass,
+		Description: req.Description,
+	}
+	if err := h.Repository.GasCreate(&gas); err != nil {
+		h.errorHandler(ctx, http.StatusInternalServerError, err)
+		return
+	}
+	ctx.JSON(http.StatusCreated, gas)
+}
+
+// ApiUpdateGas PUT /api/gases/:id
+func (h *Handler) ApiUpdateGas(ctx *gin.Context) {
+	id, err := strconv.Atoi(ctx.Param("id"))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+	var req apiGasUpdate
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := h.Repository.GasUpdate(id, req.Title, req.Formula, req.MolarMass, req.Description); err != nil {
+		h.errorHandler(ctx, http.StatusInternalServerError, err)
+		return
+	}
+	gas, _ := h.Repository.GetGasByID(id)
+	ctx.JSON(http.StatusOK, gas)
+}
+
+// ApiDeleteGas DELETE /api/gases/:id
+func (h *Handler) ApiDeleteGas(ctx *gin.Context) {
+	id, err := strconv.Atoi(ctx.Param("id"))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+	if err := h.Repository.GasDelete(id); err != nil {
+		h.errorHandler(ctx, http.StatusInternalServerError, err)
+		return
+	}
+	ctx.Status(http.StatusNoContent)
+}
+
+// ApiUploadGasImage POST /api/gases/:id/image
+func (h *Handler) ApiUploadGasImage(ctx *gin.Context) {
+	id, err := strconv.Atoi(ctx.Param("id"))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+	file, err := ctx.FormFile("file")
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "file required"})
+		return
+	}
+	url, err := h.Repository.GasUploadImage(ctx, id, file)
+	if err != nil {
+		h.errorHandler(ctx, http.StatusInternalServerError, err)
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"image_url": url})
+}
+
+// ApiAddGasToDraft POST /api/gases/:id/add-to-draft
+func (h *Handler) ApiAddGasToDraft(ctx *gin.Context) {
+	id, err := strconv.Atoi(ctx.Param("id"))
+	if err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "invalid id"})
+		return
+	}
+	// фиксированный пользователь-создатель (singleton)
+	creatorID := h.Repository.FixedCreatorID()
+	if err := h.Repository.AddGasToDraft(uint(id), creatorID); err != nil {
+		h.errorHandler(ctx, http.StatusInternalServerError, err)
+		return
+	}
+	ctx.Status(http.StatusNoContent)
+}
+
+// ApiGetCart GET /api/cart
+func (h *Handler) ApiGetCart(ctx *gin.Context) {
+	creatorID := h.Repository.FixedCreatorID()
+	id, count, err := h.Repository.GetDraftCartInfo(creatorID)
+	if err != nil {
+		h.errorHandler(ctx, http.StatusInternalServerError, err)
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"draft_id": id, "count": count})
+}

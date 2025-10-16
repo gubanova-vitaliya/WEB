@@ -3,6 +3,8 @@ package ds
 import (
 	"database/sql"
 	"time"
+
+	"gorm.io/gorm"
 )
 
 type Calculation struct {
@@ -11,6 +13,7 @@ type Calculation struct {
 	Text        sql.NullString `gorm:"type:text;default:null"`
 	DateCreate  time.Time      `gorm:"not null"`
 	DateUpdate  time.Time
+	DateForm    sql.NullTime `gorm:"default:null"`
 	DateFinish  sql.NullTime `gorm:"default:null"`
 	CreatorID   uint         `gorm:"not null"`
 	ModeratorID uint
@@ -25,4 +28,6 @@ type Calculation struct {
 
 	Creator   Users `gorm:"foreignKey:CreatorID"`
 	Moderator Users `gorm:"foreignKey:ModeratorID"`
+
+	DeletedAt gorm.DeletedAt `gorm:"index"`
 }

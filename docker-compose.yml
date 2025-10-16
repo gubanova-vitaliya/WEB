@@ -10,36 +10,39 @@ x-minio-common: &minio-common
   expose:
     - "9000"
     - "9001"
-    # environment:
-    # MINIO_ROOT_USER: minioadmin
-    # MINIO_ROOT_PASSWORD: minioadmin
   healthcheck:
     test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
     interval: 30s
     timeout: 20s
     retries: 3
 
-# starts 4 docker containers running minio server instances.
-# using nginx reverse proxy, load balancing, you can access
-# it through port 9000.
 services:
   postgres:
     image: postgres:latest
     environment:
-      POSTGRES_USER: myuser
-      POSTGRES_PASSWORD: mypassword
-      POSTGRES_DB: mydb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 1234
+      POSTGRES_DB: lab2
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U myuser -d mydb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   adminer:
     image: adminer:latest
     ports:
-        - "8081:8081"
+      - "8081:8080"  # ИЗМЕНЕНО: было "8081:8081", стало "8081:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
     depends_on:
-        - postgres
+      postgres:
+        condition: service_healthy
+
   minio1:
     <<: *minio-common
     hostname: minio1
@@ -82,8 +85,6 @@ services:
       - minio3
       - minio4
 
-## By default this config uses default local driver,
-## For custom volumes replace with volume driver configuration.
 volumes:
   postgres_data:
   data1-1:

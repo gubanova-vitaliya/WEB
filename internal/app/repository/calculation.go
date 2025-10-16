@@ -1,3 +1,4 @@
+// repository/calculation.go
 package repository
 
 import (
@@ -25,6 +26,7 @@ type GasCalculationData struct {
 	Volume             float64
 	GasAmount          float64
 	FinalPressure      float64
+	IsActive           bool // Флаг для логического удаления
 }
 
 var (
@@ -41,13 +43,13 @@ func getStorage() *InMemoryStorage {
 	return storage
 }
 
-// AddGasToCalculation добавляет газ в расчет (в память) - БЕЗ ПРОВЕРКИ ДУБЛИКАТОВ
+// AddGasToCalculation добавляет газ в расчет (в память)
 func (r *Repository) AddGasToCalculation(creatorID uint, gas *ds.Gas) error {
 	storage := getStorage()
 	storage.mu.Lock()
 	defer storage.mu.Unlock()
 
-	// Создаем новую запись (теперь можно добавлять один и тот же газ много раз)
+	// Создаем новую запись
 	gasCalc := &GasCalculationData{
 		GasCalculationID: uint(len(storage.calculations[creatorID]) + 1),
 		GasID:            uint(gas.ID),
@@ -56,22 +58,31 @@ func (r *Repository) AddGasToCalculation(creatorID uint, gas *ds.Gas) error {
 		GasMolarMass:     gas.MolarMass,
 		GasImageURL:      gas.ImageURL,
 		GasDescription:   gas.Description,
+		IsActive:         true, // По умолчанию активен
 	}
 
 	storage.calculations[creatorID] = append(storage.calculations[creatorID], gasCalc)
 	return nil
 }
 
-// GetGasesInCalculation возвращает все газы в расчете
+// GetGasesInCalculation возвращает только активные газы в расчете
 func (r *Repository) GetGasesInCalculation(creatorID uint) ([]map[string]interface{}, error) {
 	storage := getStorage()
 	storage.mu.RLock()
 	defer storage.mu.RUnlock()
 
-	gases := storage.calculations[creatorID]
-	results := make([]map[string]interface{}, len(gases))
+	allGases := storage.calculations[creatorID]
+	var activeGases []*GasCalculationData
 
-	for i, gas := range gases {
+	// Фильтруем только активные
+	for _, gas := range allGases {
+		if gas.IsActive {
+			activeGases = append(activeGases, gas)
+		}
+	}
+
+	results := make([]map[string]interface{}, len(activeGases))
+	for i, gas := range activeGases {
 		results[i] = map[string]interface{}{
 			"gas_calculation_id":  gas.GasCalculationID,
 			"gas_id":              gas.GasID,
@@ -86,32 +97,15 @@ func (r *Repository) GetGasesInCalculation(creatorID uint) ([]map[string]interfa
 			"volume":              gas.Volume,
 			"gas_amount":          gas.GasAmount,
 			"final_pressure":      gas.FinalPressure,
+			"is_active":           gas.IsActive,
 		}
 	}
 
 	return results, nil
 }
 
-// RemoveGasFromCalculation удаляет газ из расчета
+// RemoveGasFromCalculation ЛОГИЧЕСКИ удаляет газ из расчета
 func (r *Repository) RemoveGasFromCalculation(creatorID uint, gasCalculationID uint) error {
-	storage := getStorage()
-	storage.mu.Lock()
-	defer storage.mu.Unlock()
-
-	gases := storage.calculations[creatorID]
-	for i, gas := range gases {
-		if gas.GasCalculationID == gasCalculationID {
-			// Удаляем газ из slice
-			storage.calculations[creatorID] = append(gases[:i], gases[i+1:]...)
-			return nil
-		}
-	}
-
-	return nil
-}
-
-// UpdateCalculationParams обновляет параметры расчета
-func (r *Repository) UpdateCalculationParams(creatorID uint, gasCalculationID uint, params map[string]interface{}) error {
 	storage := getStorage()
 	storage.mu.Lock()
 	defer storage.mu.Unlock()
@@ -119,25 +113,8 @@ func (r *Repository) UpdateCalculationParams(creatorID uint, gasCalculationID ui
 	gases := storage.calculations[creatorID]
 	for _, gas := range gases {
 		if gas.GasCalculationID == gasCalculationID {
-			// Обновляем параметры
-			if pressure, ok := params["initial_pressure"].(float64); ok {
-				gas.InitialPressure = pressure
-			}
-			if temp, ok := params["initial_temperature"].(float64); ok {
-				gas.InitialTemperature = temp
-			}
-			if temp, ok := params["final_temperature"].(float64); ok {
-				gas.FinalTemperature = temp
-			}
-			if volume, ok := params["volume"].(float64); ok {
-				gas.Volume = volume
-			}
-			if amount, ok := params["gas_amount"].(float64); ok {
-				gas.GasAmount = amount
-			}
-			if pressure, ok := params["final_pressure"].(float64); ok {
-				gas.FinalPressure = pressure
-			}
+			// Логическое удаление - просто помечаем как неактивный
+			gas.IsActive = false
 			break
 		}
 	}
@@ -145,22 +122,21 @@ func (r *Repository) UpdateCalculationParams(creatorID uint, gasCalculationID ui
 	return nil
 }
 
-// GetCartCount для получения количества газов в расчете
+// GetCartCount для получения количества АКТИВНЫХ газов в расчете
 func (r *Repository) GetCartCount() int64 {
 	storage := getStorage()
 	storage.mu.RLock()
 	defer storage.mu.RUnlock()
 
 	creatorID := uint(1)
-	return int64(len(storage.calculations[creatorID]))
-}
+	gases := storage.calculations[creatorID]
 
-// ClearAllCalculations очищает все расчеты (для кнопки "Очистить все")
-func (r *Repository) ClearAllCalculations(creatorID uint) error {
-	storage := getStorage()
-	storage.mu.Lock()
-	defer storage.mu.Unlock()
+	count := 0
+	for _, gas := range gases {
+		if gas.IsActive {
+			count++
+		}
+	}
 
-	storage.calculations[creatorID] = []*GasCalculationData{}
-	return nil
+	return int64(count)
 }

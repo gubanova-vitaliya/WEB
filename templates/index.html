@@ -49,7 +49,7 @@
             <p><strong>Описание:</strong> {{.Description}}</p>
             <p><strong>ID:</strong> {{.ID}}</p>
             <a href="/gas/{{.ID}}" class="yellow-btn">📖 Подробнее</a>
-            <form method="post" action="/calculation/add-gas" style="margin-top: 10px;">
+            <form method="post" action="/calculation/add" style="margin-top: 10px;">
                 <input type="hidden" name="gas_id" value="{{.ID}}">
                 <button type="submit" class="add-to-cart-btn">➕ Добавить в расчеты</button>
             </form>

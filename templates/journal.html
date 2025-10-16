@@ -13,7 +13,8 @@
 <main>
     <div class="journal-container">
         <div class="journal-header">
-            <h1>🧪 Журнал расчетов давления</h1>
+            <h1>🧪 Журнал расчетов</h1>
+            <p>Всего расчетов: {{len .gases}}</p>
         </div>
 
         {{if .gases}}
@@ -24,12 +25,6 @@
                     <th>Газ</th>
                     <th>Формула</th>
                     <th>Молярная масса</th>
-                    <th>Начальное давление (Па)</th>
-                    <th>Начальная температура (K)</th>
-                    <th>Конечная температура (K)</th>
-                    <th>Объем (м³)</th>
-                    <th>Количество вещества (моль)</th>
-                    <th>Конечное давление</th>
                     <th>Действия</th>
                 </tr>
                 </thead>
@@ -50,75 +45,11 @@
                     <td class="gas-mass">
                         {{printf "%.2f" .gas_molar_mass}} г/моль
                     </td>
-
-                    <!-- Форма для обновления параметров -->
-                    <form method="post" action="/calculation/{{.gas_calculation_id}}/update" class="param-form">
-                        <td class="input-cell">
-                            <input type="number"
-                                   name="initial_pressure"
-                                   class="param-input"
-                                   placeholder="—"
-                                   step="0.001"
-                                   value="{{if .initial_pressure}}{{.initial_pressure}}{{end}}"
-                                   onchange="this.form.submit()">
-                        </td>
-                        <td class="input-cell">
-                            <input type="number"
-                                   name="initial_temperature"
-                                   class="param-input"
-                                   placeholder="—"
-                                   step="0.001"
-                                   value="{{if .initial_temperature}}{{.initial_temperature}}{{end}}"
-                                   onchange="this.form.submit()">
-                        </td>
-                        <td class="input-cell">
-                            <input type="number"
-                                   name="final_temperature"
-                                   class="param-input"
-                                   placeholder="—"
-                                   step="0.001"
-                                   value="{{if .final_temperature}}{{.final_temperature}}{{end}}"
-                                   onchange="this.form.submit()">
-                        </td>
-                        <td class="input-cell">
-                            <input type="number"
-                                   name="volume"
-                                   class="param-input"
-                                   placeholder="—"
-                                   step="0.000001"
-                                   value="{{if .volume}}{{.volume}}{{end}}"
-                                   onchange="this.form.submit()">
-                        </td>
-                        <td class="input-cell">
-                            <input type="number"
-                                   name="gas_amount"
-                                   class="param-input"
-                                   placeholder="—"
-                                   step="0.001"
-                                   value="{{if .gas_amount}}{{.gas_amount}}{{end}}"
-                                   onchange="this.form.submit()">
-                        </td>
-                    </form>
-
-                    <td class="result-cell">
-                        {{if .final_pressure}}
-                        <span class="final-pressure-value">{{printf "%.2f" .final_pressure}}</span> Па
-                        {{else}}
-                        <span class="not-calculated">—</span>
-                        {{end}}
-                    </td>
                     <td class="actions-cell">
-                        <!-- Отдельная форма для расчета -->
-                        <form method="post" action="/calculation/{{.gas_calculation_id}}/calculate" style="display: inline;">
-                            <button type="submit" class="calculate-gas-btn" title="Рассчитать давление">
-                                🧮
-                            </button>
-                        </form>
-
-                        <!-- Отдельная форма для удаления -->
-                        <form method="post" action="/calculation/gas/{{.gas_calculation_id}}/remove" style="display: inline;">
+                        <!-- Форма для логического удаления -->
+                        <form method="post" action="/calculation/{{.gas_calculation_id}}/remove" style="display: inline;">
                             <button type="submit" class="remove-gas-btn" title="Удалить из расчета">
-                                ❌
+                                ❌ Удалить
                             </button>
                         </form>
                     </td>
@@ -126,19 +57,13 @@
                 {{end}}
                 </tbody>
             </table>
-
-            <div class="calculation-actions">
-                <form method="post" action="/calculation/clear-all" style="display: inline;">
-                    <button type="submit" class="clear-all-btn">
-                        🗑️ Очистить все
-                    </button>
-                </form>
-            </div>
         </div>
         {{else}}
         <div class="empty-journal">
             <div class="empty-icon">📝</div>
             <h3>Журнал расчетов пуст</h3>
+            <p>Добавьте газы из каталога для начала работы</p>
+            <a href="/gas" class="yellow-btn">Перейти к каталогу</a>
         </div>
         {{end}}
     </div>

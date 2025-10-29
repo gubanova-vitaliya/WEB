@@ -98,7 +98,7 @@ func (r *Repository) GasDelete(id int) error {
 	return r.db.Delete(&ds.Gas{}, id).Error
 }
 
-// stubbed MinIO upload; replace with real client later
+// GasUploadImage загружает изображение для газа
 func (r *Repository) GasUploadImage(ctx interface{ Done() <-chan struct{} }, id int, fileHeader *multipart.FileHeader) (string, error) {
 	// init client
 	client, err := minio.New(r.minioEndpoint, &minio.Options{

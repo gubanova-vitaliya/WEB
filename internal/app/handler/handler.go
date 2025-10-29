@@ -28,7 +28,7 @@ func (h *Handler) errorHandler(ctx *gin.Context, errorStatusCode int, err error)
 	})
 }
 
-// RegisterHandler Функция, в которой мы отдельно регистрируем маршруты, чтобы не писать все в одном месте
+// RegisterHandler Функция, в которой мы отдельно регистрируем маршруты
 func (h *Handler) RegisterHandler(router *gin.Engine) {
 	// 1. GET-запрос на просмотр всех карточек на главной странице
 	router.GET("/gas", h.GetAllGases)
@@ -44,6 +44,13 @@ func (h *Handler) RegisterHandler(router *gin.Engine) {
 
 	// 5. POST-запрос на логическое удаление расчета из журнала
 	router.POST("/calculation/:id/remove", h.RemoveGasFromCalculation)
+
+	// 6. Новые маршруты для работы с расчетами
+	router.POST("/calculation/:id/calculate", h.CalculateGasPressure)
+	router.POST("/calculation/calculate-all", h.CalculateAllGases)
+	router.POST("/calculation/update-all", h.UpdateAllGasParams) // Новый
+	router.POST("/calculation/save-all", h.SaveAllGasParams)     // Новый
+	router.POST("/calculation/:id/submit", h.SubmitCalculation)
 }
 
 // RegisterStatic То же самое, что и с маршрутами, регистрируем статику
@@ -51,17 +58,29 @@ func (h *Handler) RegisterStatic(router *gin.Engine) {
 	// Определяем корректные пути до шаблонов и статики независимо от рабочей директории
 	templatesGlob := "templates/*.html"
 	staticDir := "./resources"
+	imagesDir := "./resources/images"
 
 	if _, err := os.Stat("templates"); err != nil {
 		// если запускают из cmd/GaseProject, поднимемся на два уровня
 		altTemplates := filepath.FromSlash("../../templates/*.html")
 		altStatic := filepath.FromSlash("../../resources")
+		altImages := filepath.FromSlash("../../resources/images")
 		templatesGlob = altTemplates
 		staticDir = altStatic
+
+		// Проверяем существование images директории
+		if _, err := os.Stat(altImages); err == nil {
+			imagesDir = altImages
+		}
 	}
 
 	router.LoadHTMLGlob(templatesGlob)
 	router.Static("/static", staticDir)
+
+	// Отдельно обслуживаем images если директория существует
+	if _, err := os.Stat(imagesDir); err == nil {
+		router.Static("/images", imagesDir)
+	}
 }
 
 // RegisterAPI регистрирует REST API с префиксом /api
@@ -77,9 +96,8 @@ func (h *Handler) RegisterAPI(router *gin.Engine) {
 	api.POST("/gases/:id/image", h.ApiUploadGasImage)
 	api.POST("/gases/:id/add-to-draft", h.ApiAddGasToDraft)
 
-	// Домен заявки (журнал/корзина)
+	// Домен заявки
 	api.GET("/cart", h.ApiGetCart)
-	// Заявки
 	api.GET("/calculations", h.ApiListCalculations)
 	api.GET("/calculations/:id", h.ApiGetCalculation)
 	api.PUT("/calculations/:id", h.ApiUpdateCalculation)
@@ -88,7 +106,7 @@ func (h *Handler) RegisterAPI(router *gin.Engine) {
 	api.PUT("/calculations/:id/reject", h.ApiRejectCalculation)
 	api.DELETE("/calculations/:id", h.ApiDeleteCalculation)
 
-	// Домен m-m
+	// Домен м-м
 	api.DELETE("/mm/gas/:id", h.ApiMMDelete)
 	api.PUT("/mm/gas/:id", h.ApiMMUpdate)
 

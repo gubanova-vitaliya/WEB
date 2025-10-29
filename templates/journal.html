@@ -4,17 +4,65 @@
     <meta charset="UTF-8">
     <title>Журнал расчетов</title>
     <link rel="stylesheet" href="/static/styles/journal_style.css">
+    <style>
+        /* Инлайн стили для гарантии отображения */
+        .param-input {
+            display: block !important;
+            width: 100% !important;
+            padding: 8px !important;
+            border: 1px solid #ccc !important;
+            border-radius: 4px !important;
+            font-size: 12px !important;
+            background: white !important;
+        }
+
+        .calculate-gas-btn, .remove-gas-btn {
+            display: block !important;
+            width: 100% !important;
+            padding: 8px !important;
+            margin: 2px 0 !important;
+            border: none !important;
+            border-radius: 4px !important;
+            color: white !important;
+            font-size: 11px !important;
+            cursor: pointer !important;
+        }
+
+        .calculate-gas-btn {
+            background: #28a745 !important;
+        }
+
+        .remove-gas-btn {
+            background: #dc3545 !important;
+        }
+
+        .final-pressure-value {
+            color: #28a745 !important;
+            font-weight: bold !important;
+            font-size: 12px !important;
+        }
+
+        .not-calculated {
+            color: #6c757d !important;
+            font-style: italic !important;
+            font-size: 11px !important;
+        }
+    </style>
 </head>
 <body>
 <header>
     <a href="/gas" class="home-btn">🏠 Домой</a>
+    <div class="cart-info">
+        📋 Расчет #{{.calculation.ID}} | Газов: {{.cart_count}}
+        <span class="status-badge status-draft">Черновик</span>
+    </div>
 </header>
 
 <main>
     <div class="journal-container">
         <div class="journal-header">
             <h1>🧪 Журнал расчетов</h1>
-            <p>Всего газов в расчете: {{len .gases}}</p>
+            <p class="journal-subtitle">Заполните параметры и нажмите кнопки для расчетов</p>
         </div>
 
         {{if .gases}}
@@ -25,11 +73,12 @@
                     <th>Газ</th>
                     <th>Формула</th>
                     <th>Молярная масса</th>
-                    <th>Начальное давление (Па)</th>
-                    <th>Начальная температура (К)</th>
-                    <th>Конечная температура (К)</th>
-                    <th>Объем сосуда (м³)</th>
-                    <th>Количество вещества (моль)</th>
+                    <th>Нач. давление (Па)</th>
+                    <th>Нач. темп. (К)</th>
+                    <th>Кон. темп. (К)</th>
+                    <th>Объем (м³)</th>
+                    <th>Кол-во в-ва (моль)</th>
+                    <th>Результат (Па)</th>
                     <th>Действия</th>
                 </tr>
                 </thead>
@@ -38,53 +87,81 @@
                 <tr>
                     <td class="gas-info-cell">
                         <div class="gas-main-info">
-                            <div class="gas-name">{{.gas_title}}</div>
-                            {{if .gas_image_url}}
-                            <img src="{{.gas_image_url}}" alt="{{.gas_title}}" class="gas-image">
-                            {{end}}
+                            <div class="gas-placeholder">
+                                {{.Gas.Formula}}
+                            </div>
+                            <div class="gas-name">{{.Gas.Title}}</div>
                         </div>
                     </td>
                     <td class="gas-formula-cell">
-                        <span class="gas-formula">{{.gas_formula}}</span>
+                        <span class="gas-formula">{{.Gas.Formula}}</span>
                     </td>
                     <td class="gas-mass">
-                        {{printf "%.2f" .gas_molar_mass}} г/моль
+                        {{printf "%.2f" .Gas.MolarMass}} г/моль
                     </td>
-                    <td class="param-cell">
-                        <input type="number" step="0.0001"
-                               name="initial_pressure_{{.gas_calculation_id}}"
-                               placeholder="101325.0"
-                               value="{{.initial_pressure}}">
+                    <td class="input-cell">
+                        <form method="post" action="/calculation/{{.ID}}/update" style="margin: 0;">
+                            <input type="number" step="0.0001"
+                                   name="initial_pressure"
+                                   placeholder="101325.0"
+                                   value="{{if gt .InitialPressure 0}}{{printf "%.0f" .InitialPressure}}{{end}}"
+                            class="param-input">
+                        </form>
                     </td>
-                    <td class="param-cell">
-                        <input type="number" step="0.0001"
-                               name="initial_temperature_{{.gas_calculation_id}}"
-                               placeholder="273.15"
-                               value="{{.initial_temperature}}">
+                    <td class="input-cell">
+                        <form method="post" action="/calculation/{{.ID}}/update" style="margin: 0;">
+                            <input type="number" step="0.0001"
+                                   name="initial_temperature"
+                                   placeholder="273.15"
+                                   value="{{if gt .InitialTemperature 0}}{{printf "%.2f" .InitialTemperature}}{{end}}"
+                            class="param-input">
+                        </form>
                     </td>
-                    <td class="param-cell">
-                        <input type="number" step="0.0001"
-                               name="final_temperature_{{.gas_calculation_id}}"
-                               placeholder="373.15"
-                               value="{{.final_temperature}}">
+                    <td class="input-cell">
+                        <form method="post" action="/calculation/{{.ID}}/update" style="margin: 0;">
+                            <input type="number" step="0.0001"
+                                   name="final_temperature"
+                                   placeholder="373.15"
+                                   value="{{if gt .FinalTemperature 0}}{{printf "%.2f" .FinalTemperature}}{{end}}"
+                            class="param-input">
+                        </form>
                     </td>
-                    <td class="param-cell">
-                        <input type="number" step="0.0001"
-                               name="volume_{{.gas_calculation_id}}"
-                               placeholder="0.001"
-                               value="{{.volume}}">
+                    <td class="input-cell">
+                        <form method="post" action="/calculation/{{.ID}}/update" style="margin: 0;">
+                            <input type="number" step="0.0001"
+                                   name="volume"
+                                   placeholder="0.001"
+                                   value="{{if gt .Volume 0}}{{printf "%.4f" .Volume}}{{end}}"
+                            class="param-input">
+                        </form>
                     </td>
-                    <td class="param-cell">
-                        <input type="number" step="0.0001"
-                               name="gas_amount_{{.gas_calculation_id}}"
-                               placeholder="0.1"
-                               value="{{.gas_amount}}">
+                    <td class="input-cell">
+                        <form method="post" action="/calculation/{{.ID}}/update" style="margin: 0;">
+                            <input type="number" step="0.0001"
+                                   name="gas_amount"
+                                   placeholder="0.1"
+                                   value="{{if gt .GasAmount 0}}{{printf "%.4f" .GasAmount}}{{end}}"
+                            class="param-input">
+                        </form>
+                    </td>
+                    <td class="result-cell">
+                        {{if gt .FinalPressure 0}}
+                        <span class="final-pressure-value">
+                            {{printf "%.0f" .FinalPressure}} Па
+                        </span>
+                        {{else}}
+                        <span class="not-calculated">Не рассчитано</span>
+                        {{end}}
                     </td>
                     <td class="actions-cell">
-                        <form method="post" action="/calculation/{{.gas_calculation_id}}/remove"
-                              class="remove-form">
-                            <button type="submit" class="remove-gas-btn" title="Удалить из расчета">
-                                ❌
+                        <form method="post" action="/calculation/{{.ID}}/calculate" style="margin: 0 0 5px 0;">
+                            <button type="submit" class="calculate-gas-btn">
+                                ⚡ Рассчитать
+                            </button>
+                        </form>
+                        <form method="post" action="/calculation/{{.ID}}/remove" style="margin: 0;">
+                            <button type="submit" class="remove-gas-btn">
+                                ❌ Удалить
                             </button>
                         </form>
                     </td>
@@ -93,10 +170,38 @@
                 </tbody>
             </table>
         </div>
+
+        <div class="calculation-actions">
+            <form method="post" action="/calculation/calculate-all" style="margin: 0;">
+                <button type="submit" class="calculate-all-btn">
+                    ⚡ Рассчитать все газы
+                </button>
+            </form>
+
+            <a href="/gas" class="btn-primary">
+                ➕ Добавить газ
+            </a>
+
+            {{if gt .cart_count 0}}
+            <form method="post" action="/calculation/{{.calculation.ID}}/submit" style="margin: 0;">
+                <button type="submit" class="submit-btn">
+                    📤 Отправить расчет
+                </button>
+            </form>
+            {{end}}
+        </div>
+
+        <div class="instructions">
+            <p>💡 <strong>Инструкция:</strong> Заполните параметры → Нажмите Enter в поле → Нажмите "⚡ Рассчитать"</p>
+            <p>Обязательные поля: Конечная температура, Объем, Количество вещества</p>
+        </div>
         {{else}}
         <div class="empty-journal">
             <div class="empty-icon">📝</div>
             <h3>Журнал расчетов пуст</h3>
+            <p>Добавьте газы из каталога для начала расчетов</p>
+            <a href="/gas" class="btn-primary">📂 Перейти в каталог газов</a>
+        </div>
         {{end}}
     </div>
 </main>

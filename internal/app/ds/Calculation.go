@@ -7,19 +7,21 @@ import (
 	"gorm.io/gorm"
 )
 
-// internal/ds/Calculation.go
 type Calculation struct {
-	ID          uint           `gorm:"primaryKey"`
-	Status      string         `gorm:"type:varchar(15);not null"`
-	Text        sql.NullString `gorm:"type:text;default:null"`
-	DateCreate  time.Time      `gorm:"not null"`
-	DateUpdate  time.Time
-	DateForm    sql.NullTime `gorm:"default:null"`
-	DateFinish  sql.NullTime `gorm:"default:null"`
-	CreatorID   uint         `gorm:"not null"`
-	ModeratorID *uint        `gorm:"default:null"` // Измените на указатель
+	ID     uint           `gorm:"primaryKey"`
+	Status string         `gorm:"type:varchar(15);not null;default:'draft'"`
+	Text   sql.NullString `gorm:"type:text;default:null"`
 
-	// Остальные поля...
+	// Даты
+	DateCreate time.Time    `gorm:"not null"`
+	DateForm   sql.NullTime `gorm:"default:null"`
+	DateFinish sql.NullTime `gorm:"default:null"`
+
+	// Пользователи
+	CreatorID   uint  `gorm:"not null"`
+	ModeratorID *uint `gorm:"default:null"`
+
+	// Параметры расчета (теперь на уровне расчета, а не газа)
 	InitialPressure    sql.NullFloat64 `gorm:"type:decimal(10,4);default:null"`
 	InitialTemperature sql.NullFloat64 `gorm:"type:decimal(10,4);default:null"`
 	FinalTemperature   sql.NullFloat64 `gorm:"type:decimal(10,4);default:null"`
@@ -27,8 +29,12 @@ type Calculation struct {
 	GasAmount          sql.NullFloat64 `gorm:"type:decimal(10,4);default:null"`
 	FinalPressure      sql.NullFloat64 `gorm:"type:decimal(10,4);default:null"`
 
+	// Связи
 	Creator   Users  `gorm:"foreignKey:CreatorID"`
-	Moderator *Users `gorm:"foreignKey:ModeratorID"` // Также измените здесь
+	Moderator *Users `gorm:"foreignKey:ModeratorID"`
+
+	// Газы в расчете
+	Gases []GasCalculation `gorm:"foreignKey:CalculationID"`
 
 	DeletedAt gorm.DeletedAt `gorm:"index"`
 }

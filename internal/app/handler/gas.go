@@ -35,6 +35,7 @@ func (h *Handler) GetAllGases(ctx *gin.Context) {
 		"search":     search,
 	})
 }
+
 func (h *Handler) GetGasById(ctx *gin.Context) {
 	strId := ctx.Param("id")
 	id, err := strconv.Atoi(strId)

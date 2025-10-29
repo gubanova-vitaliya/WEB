@@ -6,6 +6,279 @@ import (
 	"time"
 )
 
+// CalculateGasPressure рассчитывает давление для конкретного газа в расчете
+func (r *Repository) CalculateGasPressure(gasCalculationID uint, params map[string]float64) (float64, error) {
+	var gasCalc ds.GasCalculation
+	if err := r.db.Preload("Gas").First(&gasCalc, gasCalculationID).Error; err != nil {
+		return 0, err
+	}
+
+	// Проверяем обязательные параметры
+	gasAmount, hasAmount := params["gas_amount"]
+	finalTemp, hasTemp := params["final_temperature"]
+	volume, hasVolume := params["volume"]
+
+	if !hasAmount || !hasTemp || !hasVolume {
+		return 0, errors.New("missing required parameters: gas_amount, final_temperature, volume")
+	}
+
+	// Универсальная газовая постоянная
+	const R = 8.314462618 // Дж/(моль·К)
+
+	// Расчет давления по уравнению Менделеева-Клапейрона: P = nRT/V
+	pressure := (gasAmount * R * finalTemp) / volume
+
+	// Обновляем параметры в GasCalculation
+	updates := map[string]interface{}{
+		"gas_amount":        gasAmount,
+		"final_temperature": finalTemp,
+		"volume":            volume,
+		"final_pressure":    pressure,
+	}
+
+	// Опциональные параметры
+	if initialPressure, ok := params["initial_pressure"]; ok {
+		updates["initial_pressure"] = initialPressure
+	}
+	if initialTemp, ok := params["initial_temperature"]; ok {
+		updates["initial_temperature"] = initialTemp
+	}
+
+	if err := r.db.Model(&ds.GasCalculation{}).Where("id = ?", gasCalculationID).Updates(updates).Error; err != nil {
+		return 0, err
+	}
+
+	return pressure, nil
+}
+
+// UpdateGasCalculationParams обновляет параметры расчета для газа
+func (r *Repository) UpdateGasCalculationParams(gasCalculationID uint, params map[string]interface{}) error {
+	return r.db.Model(&ds.GasCalculation{}).Where("id = ?", gasCalculationID).Updates(params).Error
+}
+
+// GetCalculationWithGases возвращает расчет с газами и их параметрами
+func (r *Repository) GetCalculationWithGases(calculationID uint) (*ds.Calculation, error) {
+	var calculation ds.Calculation
+	err := r.db.
+		Preload("Gases").
+		Preload("Gases.Gas").
+		Preload("Creator").
+		First(&calculation, calculationID).Error
+	if err != nil {
+		return nil, err
+	}
+	return &calculation, nil
+}
+
+// GetDraftCalculation возвращает черновик расчета пользователя
+func (r *Repository) GetDraftCalculation(creatorID uint) (*ds.Calculation, error) {
+	var calculation ds.Calculation
+	err := r.db.
+		Preload("Gases").
+		Preload("Gases.Gas").
+		Where("creator_id = ? AND status = ?", creatorID, "draft").
+		First(&calculation).Error
+
+	if err != nil {
+		// Создаем новый черновик, если не найден
+		return r.ensureDraftCalculation(creatorID)
+	}
+
+	return &calculation, nil
+}
+
+// CalculateAllGases рассчитывает все газы в расчете
+func (r *Repository) CalculateAllGases(calculationID uint) (map[uint]float64, error) {
+	var gasCalcs []ds.GasCalculation
+	if err := r.db.Where("calculation_id = ?", calculationID).Find(&gasCalcs).Error; err != nil {
+		return nil, err
+	}
+
+	results := make(map[uint]float64)
+	for _, gasCalc := range gasCalcs {
+		if gasCalc.GasAmount > 0 && gasCalc.FinalTemperature > 0 && gasCalc.Volume > 0 {
+			const R = 8.314462618
+			pressure := (gasCalc.GasAmount * R * gasCalc.FinalTemperature) / gasCalc.Volume
+			results[gasCalc.ID] = pressure
+
+			// Сохраняем результат
+			r.db.Model(&ds.GasCalculation{}).Where("id = ?", gasCalc.ID).Update("final_pressure", pressure)
+		}
+	}
+
+	return results, nil
+}
+
+// ListCalculations - обновляем для работы с вычисляемым полем
+func (r *Repository) ListCalculations(status string, dateFrom string, dateTo string) ([]map[string]interface{}, error) {
+	// Создаем подзапрос для подсчета газов с рассчитанным давлением
+	subQuery := r.db.Model(&ds.GasCalculation{}).
+		Select("calculation_id, COUNT(*) as calculated_count").
+		Where("final_pressure > 0").
+		Group("calculation_id")
+
+	q := r.db.Model(&ds.Calculation{}).
+		Select("calculations.*, COALESCE(sq.calculated_count, 0) as calculated_count").
+		Joins("LEFT JOIN (?) AS sq ON calculations.id = sq.calculation_id", subQuery).
+		Where("calculations.status <> ?", "deleted").
+		Where("calculations.status <> ?", "draft").
+		Preload("Creator").
+		Preload("Moderator")
+
+	if status != "" {
+		q = q.Where("calculations.status = ?", status)
+	}
+	if dateFrom != "" {
+		q = q.Where("calculations.date_form >= ?", dateFrom)
+	}
+	if dateTo != "" {
+		q = q.Where("calculations.date_form <= ?", dateTo)
+	}
+
+	var results []struct {
+		ds.Calculation
+		CalculatedCount int `gorm:"column:calculated_count"`
+	}
+
+	if err := q.Order("calculations.date_create desc").Find(&results).Error; err != nil {
+		return nil, err
+	}
+
+	out := make([]map[string]interface{}, 0, len(results))
+	for _, result := range results {
+		out = append(out, map[string]interface{}{
+			"id":               result.ID,
+			"status":           result.Status,
+			"text":             result.Text,
+			"date_create":      result.DateCreate,
+			"date_form":        result.DateForm,
+			"date_finish":      result.DateFinish,
+			"creator_login":    result.Creator.Login,
+			"moderator_login":  result.Moderator.Login,
+			"calculated_count": result.CalculatedCount, // Новое поле
+		})
+	}
+	return out, nil
+}
+
+// GetCalculationDetail возвращает детали расчета с газами
+func (r *Repository) GetCalculationDetail(id uint) (*ds.Calculation, []map[string]interface{}, error) {
+	var c ds.Calculation
+	if err := r.db.Preload("Creator").Preload("Moderator").First(&c, id).Error; err != nil {
+		return nil, nil, err
+	}
+	var mm []ds.GasCalculation
+	if err := r.db.Preload("Gas").Where("calculation_id = ?", id).Find(&mm).Error; err != nil {
+		return &c, nil, err
+	}
+	list := make([]map[string]interface{}, 0, len(mm))
+	for _, m := range mm {
+		list = append(list, map[string]interface{}{
+			"gas_id":         m.GasID,
+			"title":          m.Gas.Title,
+			"formula":        m.Gas.Formula,
+			"molar_mass":     m.Gas.MolarMass,
+			"image_url":      m.Gas.ImageURL,
+			"description":    m.Gas.Description,
+			"sound":          m.Sound,
+			"quantity":       m.Quantity,
+			"position":       m.Position,
+			"final_pressure": m.FinalPressure,
+		})
+	}
+	return &c, list, nil
+}
+
+// UpdateCalculationFields обновляет поля расчета
+func (r *Repository) UpdateCalculationFields(id uint, text *string) error {
+	updates := map[string]interface{}{"date_update": time.Now()}
+	if text != nil {
+		updates["text"] = *text
+	}
+	return r.db.Model(&ds.Calculation{}).Where("id = ?", id).Updates(updates).Error
+}
+
+// SubmitCalculation с валидацией обязательных полей
+func (r *Repository) SubmitCalculation(id uint, creatorID uint) error {
+	var c ds.Calculation
+	if err := r.db.Preload("Gases").First(&c, id).Error; err != nil {
+		return err
+	}
+	if c.CreatorID != creatorID {
+		return errors.New("only creator can submit")
+	}
+	if c.Status != "draft" {
+		return errors.New("only draft can be submitted")
+	}
+
+	// Проверка обязательных полей
+	if len(c.Gases) == 0 {
+		return errors.New("calculation must contain at least one gas")
+	}
+
+	// Проверка что у всех газов заполнены обязательные параметры
+	for _, gas := range c.Gases {
+		if gas.GasAmount <= 0 || gas.FinalTemperature <= 0 || gas.Volume <= 0 {
+			return errors.New("all gases must have gas_amount, final_temperature and volume filled")
+		}
+	}
+
+	now := time.Now()
+	return r.db.Model(&ds.Calculation{}).Where("id = ?", id).Updates(map[string]interface{}{
+		"status":    "formed",
+		"date_form": now,
+	}).Error
+}
+
+// CompleteCalculation завершает расчет с вычислением давления
+func (r *Repository) CompleteCalculation(id uint, moderatorID uint) error {
+	var c ds.Calculation
+	if err := r.db.First(&c, id).Error; err != nil {
+		return err
+	}
+	if c.Status != "formed" {
+		return errors.New("only formed can be completed")
+	}
+
+	// Расчет конечного давления для всех газов
+	_, err := r.CalculateAllGases(id)
+	if err != nil {
+		return err
+	}
+
+	now := time.Now()
+	return r.db.Model(&ds.Calculation{}).Where("id = ?", id).Updates(map[string]interface{}{
+		"status":       "completed",
+		"moderator_id": moderatorID,
+		"date_finish":  now,
+		"date_update":  time.Now(),
+	}).Error
+}
+
+// RejectCalculation отклоняет расчет
+func (r *Repository) RejectCalculation(id uint, moderatorID uint) error {
+	var c ds.Calculation
+	if err := r.db.First(&c, id).Error; err != nil {
+		return err
+	}
+	if c.Status != "formed" {
+		return errors.New("only formed can be rejected")
+	}
+
+	now := time.Now()
+	return r.db.Model(&ds.Calculation{}).Where("id = ?", id).Updates(map[string]interface{}{
+		"status":       "rejected",
+		"moderator_id": moderatorID,
+		"date_finish":  now,
+		"date_update":  time.Now(),
+	}).Error
+}
+
+// DeleteCalculation логически удаляет расчет
+func (r *Repository) DeleteCalculation(id uint) error {
+	return r.db.Model(&ds.Calculation{}).Where("id = ?", id).Update("status", "deleted").Error
+}
+
 // AddGasToCalculation добавляет газ в расчет (черновик)
 func (r *Repository) AddGasToCalculation(creatorID uint, gas *ds.Gas) error {
 	return r.addGasToDraftDB(uint(gas.ID), creatorID)
@@ -116,7 +389,7 @@ func (r *Repository) RemoveGasFromDraft(creatorID uint, gasID uint) error {
 	return r.db.Where("calculation_id = ? AND gas_id = ?", calc.ID, gasID).Delete(&ds.GasCalculation{}).Error
 }
 
-// UpdateMM updates fields in m-m (here only Sound)
+// UpdateMM updates fields in m-m
 func (r *Repository) UpdateMM(creatorID uint, gasID uint, sound *bool, quantity *int, position *int) error {
 	calc, err := r.ensureDraftCalculation(creatorID)
 	if err != nil {
@@ -136,129 +409,4 @@ func (r *Repository) UpdateMM(creatorID uint, gasID uint, sound *bool, quantity 
 		return errors.New("no updatable fields")
 	}
 	return r.db.Model(&ds.GasCalculation{}).Where("calculation_id = ? AND gas_id = ?", calc.ID, gasID).Updates(updates).Error
-}
-
-// -------- Higher level calculation operations --------
-
-func (r *Repository) ListCalculations(status string, dateFrom string, dateTo string) ([]map[string]interface{}, error) {
-	q := r.db.Model(&ds.Calculation{}).Where("status <> ?", "deleted").Where("status <> ?", "draft").Preload("Creator").Preload("Moderator")
-	if status != "" {
-		q = q.Where("status = ?", status)
-	}
-	if dateFrom != "" {
-		q = q.Where("date_form >= ?", dateFrom)
-	}
-	if dateTo != "" {
-		q = q.Where("date_form <= ?", dateTo)
-	}
-	var items []ds.Calculation
-	if err := q.Order("date_create desc").Find(&items).Error; err != nil {
-		return nil, err
-	}
-	out := make([]map[string]interface{}, 0, len(items))
-	for _, c := range items {
-		out = append(out, map[string]interface{}{
-			"id":              c.ID,
-			"status":          c.Status,
-			"text":            c.Text,
-			"date_create":     c.DateCreate,
-			"date_update":     c.DateUpdate,
-			"date_finish":     c.DateFinish,
-			"creator_login":   c.Creator.Login,
-			"moderator_login": c.Moderator.Login,
-		})
-	}
-	return out, nil
-}
-
-func (r *Repository) GetCalculationDetail(id uint) (*ds.Calculation, []map[string]interface{}, error) {
-	var c ds.Calculation
-	if err := r.db.Preload("Creator").Preload("Moderator").First(&c, id).Error; err != nil {
-		return nil, nil, err
-	}
-	var mm []ds.GasCalculation
-	if err := r.db.Preload("Gas").Where("calculation_id = ?", id).Find(&mm).Error; err != nil {
-		return &c, nil, err
-	}
-	list := make([]map[string]interface{}, 0, len(mm))
-	for _, m := range mm {
-		list = append(list, map[string]interface{}{
-			"gas_id":      m.GasID,
-			"title":       m.Gas.Title,
-			"formula":     m.Gas.Formula,
-			"molar_mass":  m.Gas.MolarMass,
-			"image_url":   m.Gas.ImageURL,
-			"description": m.Gas.Description,
-			"sound":       m.Sound,
-			"quantity":    m.Quantity,
-			"position":    m.Position,
-		})
-	}
-	return &c, list, nil
-}
-
-func (r *Repository) UpdateCalculationFields(id uint, text *string) error {
-	updates := map[string]interface{}{"date_update": time.Now()}
-	if text != nil {
-		updates["text"] = *text
-	}
-	return r.db.Model(&ds.Calculation{}).Where("id = ?", id).Updates(updates).Error
-}
-
-func (r *Repository) SubmitCalculation(id uint, creatorID uint) error {
-	var c ds.Calculation
-	if err := r.db.First(&c, id).Error; err != nil {
-		return err
-	}
-	if c.CreatorID != creatorID {
-		return errors.New("only creator can submit")
-	}
-	if c.Status != "draft" {
-		return errors.New("only draft can be submitted")
-	}
-	return r.db.Model(&ds.Calculation{}).Where("id = ?", id).Updates(map[string]interface{}{
-		"status":      "formed",
-		"date_update": time.Now(),
-	}).Error
-}
-
-func (r *Repository) CompleteCalculation(id uint, moderatorID uint) error {
-	var c ds.Calculation
-	if err := r.db.First(&c, id).Error; err != nil {
-		return err
-	}
-	if c.Status != "formed" {
-		return errors.New("only formed can be completed")
-	}
-	if c.GasAmount.Valid && c.FinalTemperature.Valid && c.Volume.Valid {
-		const R = 8.314462618
-		fp := (c.GasAmount.Float64 * R * c.FinalTemperature.Float64) / c.Volume.Float64
-		_ = r.db.Model(&ds.Calculation{}).Where("id = ?", id).Update("final_pressure", fp).Error
-	}
-	return r.db.Model(&ds.Calculation{}).Where("id = ?", id).Updates(map[string]interface{}{
-		"status":       "completed",
-		"moderator_id": moderatorID,
-		"date_finish":  time.Now(),
-		"date_update":  time.Now(),
-	}).Error
-}
-
-func (r *Repository) RejectCalculation(id uint, moderatorID uint) error {
-	var c ds.Calculation
-	if err := r.db.First(&c, id).Error; err != nil {
-		return err
-	}
-	if c.Status != "formed" {
-		return errors.New("only formed can be rejected")
-	}
-	return r.db.Model(&ds.Calculation{}).Where("id = ?", id).Updates(map[string]interface{}{
-		"status":       "rejected",
-		"moderator_id": moderatorID,
-		"date_finish":  time.Now(),
-		"date_update":  time.Now(),
-	}).Error
-}
-
-func (r *Repository) DeleteCalculation(id uint) error {
-	return r.db.Model(&ds.Calculation{}).Where("id = ?", id).Update("status", "deleted").Error
 }

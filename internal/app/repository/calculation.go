@@ -13,10 +13,22 @@ func (r *Repository) CalculateGasPressure(gasCalculationID uint, params map[stri
 		return 0, err
 	}
 
-	// Проверяем обязательные параметры
+	// Пытаемся взять значения из параметров, иначе — из сохраненных значений
 	gasAmount, hasAmount := params["gas_amount"]
+	if !hasAmount && gasCalc.GasAmount.Valid {
+		gasAmount = gasCalc.GasAmount.Float64
+		hasAmount = true
+	}
 	finalTemp, hasTemp := params["final_temperature"]
+	if !hasTemp && gasCalc.FinalTemperature.Valid {
+		finalTemp = gasCalc.FinalTemperature.Float64
+		hasTemp = true
+	}
 	volume, hasVolume := params["volume"]
+	if !hasVolume && gasCalc.Volume.Valid {
+		volume = gasCalc.Volume.Float64
+		hasVolume = true
+	}
 
 	if !hasAmount || !hasTemp || !hasVolume {
 		return 0, errors.New("missing required parameters: gas_amount, final_temperature, volume")
@@ -96,9 +108,10 @@ func (r *Repository) CalculateAllGases(calculationID uint) (map[uint]float64, er
 
 	results := make(map[uint]float64)
 	for _, gasCalc := range gasCalcs {
-		if gasCalc.GasAmount > 0 && gasCalc.FinalTemperature > 0 && gasCalc.Volume > 0 {
+		if gasCalc.GasAmount.Valid && gasCalc.FinalTemperature.Valid && gasCalc.Volume.Valid &&
+			gasCalc.GasAmount.Float64 > 0 && gasCalc.FinalTemperature.Float64 > 0 && gasCalc.Volume.Float64 > 0 {
 			const R = 8.314462618
-			pressure := (gasCalc.GasAmount * R * gasCalc.FinalTemperature) / gasCalc.Volume
+			pressure := (gasCalc.GasAmount.Float64 * R * gasCalc.FinalTemperature.Float64) / gasCalc.Volume.Float64
 			results[gasCalc.ID] = pressure
 
 			// Сохраняем результат
@@ -218,7 +231,8 @@ func (r *Repository) SubmitCalculation(id uint, creatorID uint) error {
 
 	// Проверка что у всех газов заполнены обязательные параметры
 	for _, gas := range c.Gases {
-		if gas.GasAmount <= 0 || gas.FinalTemperature <= 0 || gas.Volume <= 0 {
+		if !(gas.GasAmount.Valid && gas.FinalTemperature.Valid && gas.Volume.Valid &&
+			gas.GasAmount.Float64 > 0 && gas.FinalTemperature.Float64 > 0 && gas.Volume.Float64 > 0) {
 			return errors.New("all gases must have gas_amount, final_temperature and volume filled")
 		}
 	}

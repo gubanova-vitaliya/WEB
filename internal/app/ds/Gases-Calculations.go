@@ -1,5 +1,7 @@
 package ds
 
+import "database/sql"
+
 type GasCalculation struct {
 	ID uint `gorm:"primaryKey"`
 
@@ -11,12 +13,12 @@ type GasCalculation struct {
 	Position int  `gorm:"default:0"`
 
 	// Параметры расчета для конкретного газа
-	InitialPressure    float64 `gorm:"type:decimal(10,4);default:0"`
-	InitialTemperature float64 `gorm:"type:decimal(10,4);default:0"`
-	FinalTemperature   float64 `gorm:"type:decimal(10,4);default:0"`
-	Volume             float64 `gorm:"type:decimal(10,4);default:0"`
-	GasAmount          float64 `gorm:"type:decimal(10,4);default:0"`
-	FinalPressure      float64 `gorm:"type:decimal(10,4);default:0"`
+	InitialPressure    sql.NullFloat64 `gorm:"type:decimal(10,4);default:null"`
+	InitialTemperature sql.NullFloat64 `gorm:"type:decimal(10,4);default:null"`
+	FinalTemperature   sql.NullFloat64 `gorm:"type:decimal(10,4);default:null"`
+	Volume             sql.NullFloat64 `gorm:"type:decimal(10,4);default:null"`
+	GasAmount          sql.NullFloat64 `gorm:"type:decimal(10,4);default:null"`
+	FinalPressure      sql.NullFloat64 `gorm:"type:decimal(10,4);default:null"`
 
 	Calculation Calculation `gorm:"foreignKey:CalculationID"`
 	Gas         Gas         `gorm:"foreignKey:GasID"`

@@ -47,6 +47,7 @@ func (h *Handler) RegisterHandler(router *gin.Engine) {
 
 	// 6. Новые маршруты для работы с расчетами
 	router.POST("/calculation/:id/calculate", h.CalculateGasPressure)
+	router.POST("/calculation/:id/update", h.UpdateGasParams)
 	router.POST("/calculation/calculate-all", h.CalculateAllGases)
 	router.POST("/calculation/update-all", h.UpdateAllGasParams) // Новый
 	router.POST("/calculation/save-all", h.SaveAllGasParams)     // Новый

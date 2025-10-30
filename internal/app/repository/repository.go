@@ -22,7 +22,7 @@ type Repository struct {
 }
 
 func New(dsn string) (*Repository, error) {
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{}) // подключаемся к БД
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
 		return nil, err
 	}
@@ -49,7 +49,7 @@ func New(dsn string) (*Repository, error) {
 // Expose DB when needed (read-only)
 func (r *Repository) DB() *gorm.DB { return r.db }
 
-// ---------- Users domain ----------
+// ---------- Users domain (старая реализация) ----------
 
 var currentUserID uint = 1 // имитация сессии
 

@@ -1,2 +1,11 @@
 ServiceHost = "localhost"
 ServicePort = 8080
+jwt_secret = "test"
+jwt_expire = "24h"
+jwt_algorithm = "HS256"
+redis_host = "localhost"
+redis_port = 6379
+redis_password = "password"
+redis_user = ""
+redis_dial_timeout = "10s"
+redis_read_timeout = "10s"

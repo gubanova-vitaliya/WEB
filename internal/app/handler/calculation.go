@@ -1,8 +1,12 @@
 package handler
 
 import (
+	"WEB/internal/app/ds"
+	"database/sql"
+	"errors"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -493,4 +497,69 @@ func (h *Handler) SaveAllGasParams(ctx *gin.Context) {
 
 	// Редирект обратно в журнал
 	ctx.Redirect(http.StatusFound, "/journal?message=saved")
+}
+
+// ApiGetMyCalculations GET /api/my-calculations - заявки текущего пользователя
+func (h *Handler) ApiGetMyCalculations(ctx *gin.Context) {
+	userUUID, exists := ctx.Get("user_uuid")
+	if !exists {
+		h.errorHandler(ctx, http.StatusUnauthorized, errors.New("user not authenticated"))
+		return
+	}
+
+	// Получаем пользователя
+	user, err := h.Repository.GetUserByUUID(userUUID.(string))
+	if err != nil {
+		h.errorHandler(ctx, http.StatusNotFound, err)
+		return
+	}
+
+	// Получаем заявки пользователя
+	calculations, err := h.Repository.GetCalculationsByUser(user.UUID)
+	if err != nil {
+		h.errorHandler(ctx, http.StatusInternalServerError, err)
+		return
+	}
+
+	ctx.JSON(http.StatusOK, calculations)
+}
+
+// ApiCreateCalculation POST /api/calculations - создание заявки
+func (h *Handler) ApiCreateCalculation(ctx *gin.Context) {
+	userUUID, exists := ctx.Get("user_uuid")
+	if !exists {
+		h.errorHandler(ctx, http.StatusUnauthorized, errors.New("user not authenticated"))
+		return
+	}
+
+	var req struct {
+		Title string `json:"title" binding:"required"`
+		Text  string `json:"text"`
+	}
+
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		h.errorHandler(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	user, err := h.Repository.GetUserByUUID(userUUID.(string))
+	if err != nil {
+		h.errorHandler(ctx, http.StatusNotFound, err)
+		return
+	}
+
+	calculation := &ds.Calculation{
+		Status:     "draft",
+		Text:       sql.NullString{String: req.Text, Valid: req.Text != ""},
+		DateCreate: time.Now(),
+		CreatorID:  user.ID, // Предполагаем, что у User есть ID
+	}
+
+	err = h.Repository.CreateCalculation(calculation)
+	if err != nil {
+		h.errorHandler(ctx, http.StatusInternalServerError, err)
+		return
+	}
+
+	ctx.JSON(http.StatusCreated, calculation)
 }

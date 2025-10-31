@@ -58,12 +58,12 @@ func (r *Repository) UserRegister(login, password string) error {
 	if err != nil {
 		return err
 	}
-	u := ds.Users{Login: login, Password: string(hash)}
+	u := ds.User{Login: login, Password: string(hash)}
 	return r.db.Create(&u).Error
 }
 
 func (r *Repository) UserLogin(login, password string) error {
-	var u ds.Users
+	var u ds.User
 	if err := r.db.Where("login = ?", login).First(&u).Error; err != nil {
 		return err
 	}
@@ -76,11 +76,11 @@ func (r *Repository) UserLogin(login, password string) error {
 
 func (r *Repository) UserLogout() { currentUserID = 0 }
 
-func (r *Repository) UserMe() (*ds.Users, error) {
+func (r *Repository) UserMe() (*ds.User, error) {
 	if currentUserID == 0 {
 		return nil, errors.New("not authenticated")
 	}
-	var u ds.Users
+	var u ds.User
 	if err := r.db.First(&u, currentUserID).Error; err != nil {
 		return nil, err
 	}
@@ -98,7 +98,7 @@ func (r *Repository) UserUpdateMe(login *string) error {
 	if len(updates) == 0 {
 		return nil
 	}
-	return r.db.Model(&ds.Users{}).Where("id = ?", currentUserID).Updates(updates).Error
+	return r.db.Model(&ds.User{}).Where("id = ?", currentUserID).Updates(updates).Error
 }
 
 // helpers

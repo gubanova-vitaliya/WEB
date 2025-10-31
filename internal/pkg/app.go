@@ -1,19 +1,15 @@
 package pkg
 
 import (
-	"context"
-	"encoding/json"
-	"fmt"
-	"net/http"
-	"strings"
-	"time"
-
 	"WEB/internal/app/config"
 	"WEB/internal/app/ds"
 	"WEB/internal/app/handler"
-	"WEB/internal/app/redis"
 	"WEB/internal/app/repository"
 	"WEB/internal/app/role"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt"
@@ -26,41 +22,30 @@ type Application struct {
 	Router      *gin.Engine
 	Handler     *handler.Handler
 	Repository  *repository.Repository
-	RedisClient *redis.Client
+	RedisClient interface{} // временно interface{} вместо *redis.Client
 }
 
 func NewApp(c *config.Config, r *gin.Engine, h *handler.Handler, repo *repository.Repository) (*Application, error) {
-	// Инициализируем Redis клиент
-	ctx := context.Background()
-	redisClient, err := redis.New(ctx, c.Redis)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create Redis client: %v", err)
-	}
-
+	// Временно отключаем Redis
 	return &Application{
-		Config:      c,
-		Router:      r,
-		Handler:     h,
-		Repository:  repo,
-		RedisClient: redisClient,
+		Config:     c,
+		Router:     r,
+		Handler:    h,
+		Repository: repo,
 	}, nil
 }
 
 func (a *Application) RunApp() {
 	logrus.Info("Server start up")
 
-	// Закрываем Redis соединение при завершении
-	defer a.RedisClient.Close()
-
 	a.Handler.RegisterHandler(a.Router)
 	a.Handler.RegisterStatic(a.Router)
 	a.Handler.RegisterAPI(a.Router)
 
-	// Добавляем эндпоинты с ролевой моделью
-	a.Router.GET("/ping", a.WithAuthCheck(role.Manager, role.Admin), a.Ping)
+	// Добавляем базовые маршруты без авторизации для тестирования
 	a.Router.POST("/login", a.Login)
 	a.Router.POST("/sign_up", a.Register)
-	a.Router.POST("/logout", a.WithAuthCheck(), a.Logout)
+	a.Router.GET("/ping", a.Ping)
 
 	serverAddress := fmt.Sprintf("%s:%d", a.Config.ServiceHost, a.Config.ServicePort)
 	if err := a.Router.Run(serverAddress); err != nil {
@@ -69,30 +54,39 @@ func (a *Application) RunApp() {
 	logrus.Info("Server down")
 }
 
-// Структуры для запросов и ответов
+// loginReq represents login request parameters
+// @Description Login credentials
 type loginReq struct {
-	Login    string `json:"login"`
-	Password string `json:"password"`
+	Login    string `json:"login" example:"testuser"`
+	Password string `json:"password" example:"password123"`
 }
 
+// loginResp represents login response
+// @Description Login response with JWT token
 type loginResp struct {
-	ExpiresIn   time.Duration `json:"expires_in"`
-	AccessToken string        `json:"access_token"`
-	TokenType   string        `json:"token_type"`
+	ExpiresIn   int64  `json:"expires_in" example:"86400"` // 24 hours in seconds
+	AccessToken string `json:"access_token" example:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."`
+	TokenType   string `json:"token_type" example:"Bearer"`
 }
 
+// registerReq represents registration request parameters
+// @Description User registration data
 type registerReq struct {
-	Name  string `json:"name"`
-	Pass  string `json:"pass"`
-	Email string `json:"email"`
+	Name  string `json:"name" example:"John Doe"`
+	Pass  string `json:"pass" example:"securepassword"`
+	Email string `json:"email" example:"john@example.com"`
 }
 
+// registerResp represents registration response
+// @Description Registration response
 type registerResp struct {
-	Ok bool `json:"ok"`
+	Ok bool `json:"ok" example:"true"`
 }
 
+// pingResp represents ping response
+// @Description Ping response
 type pingResp struct {
-	Auth bool `json:"auth"`
+	Status string `json:"status" example:"pong"`
 }
 
 // Login godoc
@@ -107,12 +101,11 @@ type pingResp struct {
 // @Failure 403 {object} map[string]string
 // @Router /login [post]
 func (a *Application) Login(ctx *gin.Context) {
-	cfg := a.Config
 	req := &loginReq{}
 
 	err := json.NewDecoder(ctx.Request.Body).Decode(req)
 	if err != nil {
-		ctx.AbortWithError(http.StatusBadRequest, err)
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -120,7 +113,7 @@ func (a *Application) Login(ctx *gin.Context) {
 	user, err := a.Repository.GetUserByLogin(req.Login)
 	if err != nil {
 		logrus.WithError(err).Warn("User not found")
-		ctx.AbortWithStatus(http.StatusForbidden)
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "Invalid credentials"})
 		return
 	}
 
@@ -128,31 +121,30 @@ func (a *Application) Login(ctx *gin.Context) {
 	err = a.Repository.VerifyPassword(user.Password, req.Password)
 	if err != nil {
 		logrus.WithError(err).Warn("Invalid password")
-		ctx.AbortWithStatus(http.StatusForbidden)
+		ctx.JSON(http.StatusForbidden, gin.H{"error": "Invalid credentials"})
 		return
 	}
-
+	userRole := role.FromString(user.Role)
 	// Генерируем JWT токен
-	token := jwt.NewWithClaims(cfg.JWT.SigningMethod, &ds.JWTClaims{
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, &ds.JWTClaims{
 		StandardClaims: jwt.StandardClaims{
-			ExpiresAt: time.Now().Add(cfg.JWT.ExpiresIn).Unix(),
+			ExpiresAt: time.Now().Add(24 * time.Hour).Unix(),
 			IssuedAt:  time.Now().Unix(),
-			Issuer:    "gase-admin",
 		},
 		UserUUID: user.UUID,
-		Role:     user.Role,
+		Role:     userRole, // Используем преобразованную роль
 	})
 
-	strToken, err := token.SignedString([]byte(cfg.JWT.Secret))
+	tokenString, err := token.SignedString([]byte(a.Config.JWT.Secret))
 	if err != nil {
 		logrus.WithError(err).Error("Failed to sign token")
-		ctx.AbortWithError(http.StatusInternalServerError, fmt.Errorf("cant create str token"))
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token"})
 		return
 	}
 
 	ctx.JSON(http.StatusOK, loginResp{
-		ExpiresIn:   cfg.JWT.ExpiresIn,
-		AccessToken: strToken,
+		ExpiresIn:   24 * 3600, // 24 часа в секундах
+		AccessToken: tokenString,
 		TokenType:   "Bearer",
 	})
 }
@@ -173,33 +165,33 @@ func (a *Application) Register(ctx *gin.Context) {
 
 	err := json.NewDecoder(ctx.Request.Body).Decode(req)
 	if err != nil {
-		ctx.AbortWithError(http.StatusBadRequest, err)
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
 	if req.Pass == "" {
-		ctx.AbortWithError(http.StatusBadRequest, fmt.Errorf("pass is empty"))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Password is required"})
 		return
 	}
 
 	if req.Name == "" {
-		ctx.AbortWithError(http.StatusBadRequest, fmt.Errorf("name is empty"))
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Name is required"})
 		return
 	}
 
 	// Генерируем хеш пароля
 	hashedPassword, err := a.Repository.GenerateHashString(req.Pass)
 	if err != nil {
-		ctx.AbortWithError(http.StatusInternalServerError, fmt.Errorf("failed to hash password"))
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
 		return
 	}
 
 	// Создаем пользователя
 	user := &ds.User{
 		UUID:     uuid.New(),
-		Role:     role.Buyer,
+		Role:     "buyer",
 		Name:     req.Name,
-		Login:    req.Name,
+		Login:    req.Name, // используем имя как логин для простоты
 		Email:    req.Email,
 		Password: hashedPassword,
 	}
@@ -207,7 +199,7 @@ func (a *Application) Register(ctx *gin.Context) {
 	err = a.Repository.Register(user)
 	if err != nil {
 		logrus.Errorf("Registration failed: %v", err)
-		ctx.AbortWithError(http.StatusInternalServerError, err)
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
 
@@ -218,74 +210,16 @@ func (a *Application) Register(ctx *gin.Context) {
 	})
 }
 
-// Logout godoc
-// @Summary User logout
-// @Description Logout user and invalidate token
-// @Tags Auth
-// @Param Authorization header string true "Bearer token"
-// @Success 200
-// @Failure 400 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /logout [post]
-func (a *Application) Logout(ctx *gin.Context) {
-	// Получаем заголовок
-	jwtStr := ctx.GetHeader("Authorization")
-	if !strings.HasPrefix(jwtStr, jwtPrefix) {
-		ctx.AbortWithStatus(http.StatusBadRequest)
-		return
-	}
-
-	// Отрезаем префикс
-	jwtStr = jwtStr[len(jwtPrefix):]
-
-	// Парсим токен чтобы убедиться в его валидности
-	token, err := jwt.ParseWithClaims(jwtStr, &ds.JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
-		return []byte(a.Config.JWT.Secret), nil
-	})
-	if err != nil {
-		ctx.AbortWithError(http.StatusBadRequest, err)
-		return
-	}
-
-	if !token.Valid {
-		ctx.AbortWithStatus(http.StatusBadRequest)
-		return
-	}
-
-	// Сохраняем в блеклист Redis
-	err = a.RedisClient.WriteJWTToBlacklist(ctx.Request.Context(), jwtStr, a.Config.JWT.ExpiresIn)
-	if err != nil {
-		logrus.WithError(err).Error("Failed to write JWT to blacklist")
-		ctx.AbortWithError(http.StatusInternalServerError, err)
-		return
-	}
-
-	logrus.Info("User logged out successfully")
-	ctx.Status(http.StatusOK)
-}
-
 // Ping godoc
 // @Summary Ping endpoint
-// @Description Check authentication status (requires Manager or Admin role)
+// @Description Check if server is running
 // @Tags Tests
 // @Produce json
-// @Param Authorization header string true "Bearer token"
 // @Success 200 {object} pingResp
-// @Failure 403 {object} map[string]string
 // @Router /ping [get]
 func (a *Application) Ping(ctx *gin.Context) {
-	// Middleware уже проверил авторизацию и роль
-	claims, exists := ctx.Get("jwt_claims")
-	if !exists {
-		ctx.JSON(http.StatusOK, pingResp{Auth: false})
-		return
-	}
-
-	jwtClaims := claims.(*ds.JWTClaims)
-	logrus.Debugf("Ping request from user: %s with role: %s", jwtClaims.UserUUID, jwtClaims.Role)
-
 	ctx.JSON(http.StatusOK, pingResp{
-		Auth: true,
+		Status: "pong",
 	})
 }
 

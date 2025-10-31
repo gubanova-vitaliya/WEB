@@ -27,6 +27,8 @@ type JWTConfig struct {
 type Config struct {
 	ServiceHost string
 	ServicePort int
+	Redis       RedisConfig
+	JWT         JWTConfig
 }
 
 func NewConfig() (*Config, error) {
@@ -40,6 +42,15 @@ func NewConfig() (*Config, error) {
 	// Устанавливаем значения по умолчанию
 	viper.SetDefault("ServiceHost", "localhost")
 	viper.SetDefault("ServicePort", 8080)
+	viper.SetDefault("jwt_secret", "test-secret")
+	viper.SetDefault("jwt_expire", "24h")
+	viper.SetDefault("jwt_algorithm", "HS256")
+	viper.SetDefault("redis_host", "localhost")
+	viper.SetDefault("redis_port", 6379)
+	viper.SetDefault("redis_password", "")
+	viper.SetDefault("redis_user", "")
+	viper.SetDefault("redis_dial_timeout", "10s")
+	viper.SetDefault("redis_read_timeout", "10s")
 
 	err := viper.ReadInConfig()
 	if err != nil {
@@ -47,9 +58,41 @@ func NewConfig() (*Config, error) {
 	}
 
 	cfg := &Config{}
-	err = viper.Unmarshal(cfg)
+
+	// Читаем базовые настройки
+	cfg.ServiceHost = viper.GetString("ServiceHost")
+	cfg.ServicePort = viper.GetInt("ServicePort")
+
+	// Настраиваем JWT
+	jwtExpire, err := time.ParseDuration(viper.GetString("jwt_expire"))
 	if err != nil {
-		return nil, err
+		jwtExpire = 24 * time.Hour
+	}
+
+	cfg.JWT = JWTConfig{
+		Secret:        viper.GetString("jwt_secret"),
+		ExpiresIn:     jwtExpire,
+		SigningMethod: getSigningMethod(viper.GetString("jwt_algorithm")),
+	}
+
+	// Настраиваем Redis
+	redisDialTimeout, err := time.ParseDuration(viper.GetString("redis_dial_timeout"))
+	if err != nil {
+		redisDialTimeout = 10 * time.Second
+	}
+
+	redisReadTimeout, err := time.ParseDuration(viper.GetString("redis_read_timeout"))
+	if err != nil {
+		redisReadTimeout = 10 * time.Second
+	}
+
+	cfg.Redis = RedisConfig{
+		Host:        viper.GetString("redis_host"),
+		Password:    viper.GetString("redis_password"),
+		Port:        viper.GetInt("redis_port"),
+		User:        viper.GetString("redis_user"),
+		DialTimeout: redisDialTimeout,
+		ReadTimeout: redisReadTimeout,
 	}
 
 	log.Info("Configuration loaded successfully")

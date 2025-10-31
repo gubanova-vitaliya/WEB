@@ -11,23 +11,34 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
-// @title BITOP
+// @title GaseProject API
 // @version 1.0
-// @description Bmstu Open IT Platform
+// @description API для управления газами и расчетами
 
 // @contact.name API Support
-// @contact.url https://vk.com/bmstu_schedule
-// @contact.email bitop@spatecon.ru
+// @contact.url http://localhost:8080
+// @contact.email support@gaseproject.com
 
-// @license.name AS IS (NO WARRANTY)
+// @license.name MIT
 
-// @host 127.0.0.1
-// @schemes https http
+// @host localhost:8080
 // @BasePath /
+// @schemes http
+
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description JWT Token
 func main() {
 	router := gin.Default()
+
+	// Добавляем Swagger
+	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+
 	conf, err := config.NewConfig()
 	if err != nil {
 		logrus.Fatalf("error loading config: %v", err)

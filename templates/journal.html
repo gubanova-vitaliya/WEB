@@ -171,36 +171,14 @@
             </table>
         </div>
 
-        <div class="calculation-actions">
-            <form method="post" action="/calculation/calculate-all" style="margin: 0;">
-                <button type="submit" class="calculate-all-btn">
-                    ⚡ Рассчитать все газы
-                </button>
-            </form>
-
-            <a href="/gas" class="btn-primary">
-                ➕ Добавить газ
-            </a>
-
             {{if gt .cart_count 0}}
-            <form method="post" action="/calculation/{{.calculation.ID}}/submit" style="margin: 0;">
-                <button type="submit" class="submit-btn">
-                    📤 Отправить расчет
-                </button>
-            </form>
             {{end}}
         </div>
 
-        <div class="instructions">
-            <p>💡 <strong>Инструкция:</strong> Заполните параметры → Нажмите Enter в поле → Нажмите "⚡ Рассчитать"</p>
-            <p>Обязательные поля: Конечная температура, Объем, Количество вещества</p>
-        </div>
         {{else}}
         <div class="empty-journal">
             <div class="empty-icon">📝</div>
             <h3>Журнал расчетов пуст</h3>
-            <p>Добавьте газы из каталога для начала расчетов</p>
-            <a href="/gas" class="btn-primary">📂 Перейти в каталог газов</a>
         </div>
         {{end}}
     </div>

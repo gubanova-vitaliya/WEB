@@ -1,8 +1,12 @@
 ServiceHost = "localhost"
 ServicePort = 8080
+
+# JWT настройки
 jwt_secret = "test"
 jwt_expire = "24h"
 jwt_algorithm = "HS256"
+
+# Redis настройки
 redis_host = "localhost"
 redis_port = 6379
 redis_password = "password"

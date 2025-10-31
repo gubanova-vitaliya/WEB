@@ -30,8 +30,8 @@ type Calculation struct {
 	FinalPressure      sql.NullFloat64 `gorm:"type:decimal(10,4);default:null"`
 
 	// Связи
-	Creator   Users  `gorm:"foreignKey:CreatorID"`
-	Moderator *Users `gorm:"foreignKey:ModeratorID"`
+	Creator   User  `gorm:"foreignKey:CreatorID"`
+	Moderator *User `gorm:"foreignKey:ModeratorID"`
 
 	// Газы в расчете
 	Gases []GasCalculation `gorm:"foreignKey:CalculationID"`

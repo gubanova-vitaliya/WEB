@@ -6,8 +6,12 @@ import (
 	"WEB/internal/app/role"
 	"errors"
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt"
+	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"
 )
 
@@ -67,18 +71,16 @@ func (h *Handler) RegisterStatic(router *gin.Engine) {
 func (h *Handler) RegisterAPI(router *gin.Engine) {
 	api := router.Group("/api")
 
-	// Публичные эндпоинты (доступны без авторизации)
+	// Публичные эндпоинты
 	api.GET("/gases", h.ApiGetGases)
 	api.GET("/gases/:id", h.ApiGetGas)
 	api.POST("/auth/register", h.ApiRegister)
 	api.POST("/auth/login", h.ApiLogin)
-	api.POST("/auth/login-session", h.ApiLoginWithSession) // Новый метод с сессией
 
 	// Защищенные эндпоинты (требуют авторизации)
 	protected := api.Group("")
 	protected.Use(h.AuthMiddleware())
 	{
-		// Пользовательские методы
 		protected.GET("/users/me", h.ApiGetProfile)
 		protected.PUT("/users/me", h.ApiUpdateMe)
 		protected.POST("/auth/logout", h.ApiLogout)
@@ -88,6 +90,7 @@ func (h *Handler) RegisterAPI(router *gin.Engine) {
 		protected.POST("/calculations", h.ApiCreateCalculation)
 		protected.PUT("/calculations/:id", h.ApiUpdateCalculation)
 		protected.POST("/calculations/:id/submit", h.ApiSubmitCalculation)
+		protected.PUT("/calculations/:id/complete", h.ApiCompleteCalculation) // <-- ПЕРЕМЕСТИЛИ СЮДА!
 	}
 
 	// Модераторские эндпоинты
@@ -96,7 +99,7 @@ func (h *Handler) RegisterAPI(router *gin.Engine) {
 	moderator.Use(h.RoleMiddleware(role.Manager, role.Admin))
 	{
 		moderator.GET("/calculations", h.ApiListCalculations)
-		moderator.PUT("/calculations/:id/complete", h.ApiCompleteCalculation)
+		// moderator.PUT("/calculations/:id/complete", h.ApiCompleteCalculation)  // <-- УДАЛИЛИ ОТСЮДА
 		moderator.PUT("/calculations/:id/reject", h.ApiRejectCalculation)
 		moderator.GET("/users", h.ApiGetAllUsers)
 	}
@@ -108,6 +111,48 @@ func (h *Handler) RegisterAPI(router *gin.Engine) {
 	{
 		admin.DELETE("/users/:uuid", h.ApiDeleteUser)
 		admin.PUT("/users/:uuid/role", h.ApiUpdateUserRole)
+	}
+}
+
+// AuthMiddleware middleware для проверки JWT
+func (h *Handler) AuthMiddleware() gin.HandlerFunc {
+	return func(ctx *gin.Context) {
+		// ВРЕМЕННО: пропускаем все запросы для тестирования
+		authHeader := ctx.GetHeader("Authorization")
+
+		if authHeader != "" {
+			// Пытаемся распарсить токен, но не блокируем если ошибка
+			parts := strings.Split(authHeader, " ")
+			if len(parts) == 2 && parts[0] == "Bearer" {
+				tokenString := parts[1]
+				claims := &ds.JWTClaims{}
+
+				// Парсим без строгой проверки (для тестирования)
+				parser := jwt.Parser{
+					SkipClaimsValidation: true, // Пропускаем проверку времени
+				}
+				token, err := parser.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+					return []byte("test"), nil
+				})
+
+				if err == nil && token != nil {
+					// Если токен валиден, сохраняем claims
+					ctx.Set("jwt_claims", claims)
+					ctx.Set("user_uuid", claims.UserUUID.String())
+					ctx.Set("user_role", claims.Role)
+				}
+			}
+		}
+
+		// Если нет валидного токена, устанавливаем заглушечные данные
+		if _, exists := ctx.Get("user_uuid"); !exists {
+			// Создаем UUID из вашего токена
+			userUUID, _ := uuid.Parse("676e1c14-a4b0-423f-base-fb53f4b0f657")
+			ctx.Set("user_uuid", userUUID.String())
+			ctx.Set("user_role", role.Buyer)
+		}
+
+		ctx.Next()
 	}
 }
 
@@ -137,6 +182,21 @@ type userResp struct {
 	Role  string `json:"role"`
 }
 
+type updateRoleRequest struct {
+	Role string `json:"role" binding:"required"`
+}
+
+// ApiRegister godoc
+// @Summary Register a new user
+// @Description Create a new user account
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Param request body apiRegisterReq true "Registration data"
+// @Success 201 {object} map[string]interface{}
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/auth/register [post]
 func (h *Handler) ApiRegister(ctx *gin.Context) {
 	var req apiRegisterReq
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -155,7 +215,7 @@ func (h *Handler) ApiRegister(ctx *gin.Context) {
 		Name:     req.Name,
 		Login:    req.Login,
 		Email:    req.Email,
-		Role:     role.Buyer,
+		Role:     role.Buyer.String(), // Преобразуем в string
 		Password: hashedPassword,
 	}
 
@@ -172,36 +232,21 @@ func (h *Handler) ApiRegister(ctx *gin.Context) {
 			Name:  user.Name,
 			Login: user.Login,
 			Email: user.Email,
-			Role:  user.Role.String(),
+			Role:  user.Role, // Уже string, не нужно .String()
 		},
 	})
 }
 
-func (h *Handler) ApiLogin(ctx *gin.Context) {
-	var req apiLoginReq
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		h.errorHandler(ctx, http.StatusBadRequest, err)
-		return
-	}
-
-	user, err := h.Repository.AuthenticateUser(req.Login, req.Password)
-	if err != nil {
-		h.errorHandler(ctx, http.StatusUnauthorized, err)
-		return
-	}
-
-	ctx.JSON(http.StatusOK, gin.H{
-		"user": userResp{
-			UUID:  user.UUID.String(),
-			Name:  user.Name,
-			Login: user.Login,
-			Email: user.Email,
-			Role:  user.Role.String(),
-		},
-		"message": "Login successful (JWT generation to be implemented)",
-	})
-}
-
+// ApiGetProfile godoc
+// @Summary Get user profile
+// @Description Get current user profile information
+// @Tags Users
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} userResp
+// @Failure 401 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Router /api/users/me [get]
 func (h *Handler) ApiGetProfile(ctx *gin.Context) {
 	userUUID, exists := ctx.Get("user_uuid")
 	if !exists {
@@ -220,50 +265,34 @@ func (h *Handler) ApiGetProfile(ctx *gin.Context) {
 		Name:  user.Name,
 		Login: user.Login,
 		Email: user.Email,
-		Role:  user.Role.String(),
+		Role:  user.Role, // Уже string, не нужно .String()
 	})
 }
 
-func (h *Handler) ApiRegisterOld(ctx *gin.Context) {
-	var req apiRegisterReq
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		h.errorHandler(ctx, 400, err)
-		return
-	}
-	if err := h.Repository.UserRegister(req.Login, req.Password); err != nil {
-		h.errorHandler(ctx, 400, err)
-		return
-	}
-	ctx.Status(201)
-}
-
-func (h *Handler) ApiLoginOld(ctx *gin.Context) {
-	var req apiLoginReq
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		h.errorHandler(ctx, 400, err)
-		return
-	}
-	if err := h.Repository.UserLogin(req.Login, req.Password); err != nil {
-		h.errorHandler(ctx, 401, err)
-		return
-	}
-	ctx.Status(204)
-}
-
+// ApiLogout godoc
+// @Summary User logout
+// @Description Logout current user
+// @Tags Users
+// @Produce json
+// @Security BearerAuth
+// @Success 204
+// @Router /api/auth/logout [post]
 func (h *Handler) ApiLogout(ctx *gin.Context) {
 	h.Repository.UserLogout()
 	ctx.Status(204)
 }
 
-func (h *Handler) ApiMe(ctx *gin.Context) {
-	u, err := h.Repository.UserMe()
-	if err != nil {
-		h.errorHandler(ctx, 401, err)
-		return
-	}
-	ctx.JSON(200, u)
-}
-
+// ApiUpdateMe godoc
+// @Summary Update user profile
+// @Description Update current user information
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body apiUpdateMeReq true "Update data"
+// @Success 204
+// @Failure 400 {object} map[string]string
+// @Router /api/users/me [put]
 func (h *Handler) ApiUpdateMe(ctx *gin.Context) {
 	var req apiUpdateMeReq
 	if err := ctx.ShouldBindJSON(&req); err != nil {
@@ -277,11 +306,209 @@ func (h *Handler) ApiUpdateMe(ctx *gin.Context) {
 	ctx.Status(204)
 }
 
-// AuthMiddleware middleware для проверки JWT авторизации
-func (h *Handler) AuthMiddleware() gin.HandlerFunc {
+// ApiLoginWithSession godoc
+// @Summary User login with session
+// @Description Authenticate user with session (not implemented)
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Param request body apiLoginReq true "Login credentials"
+// @Success 501 {object} map[string]string
+// @Router /api/auth/login-session [post]
+func (h *Handler) ApiLoginWithSession(ctx *gin.Context) {
+	// TODO: реализовать логику сессии
+	ctx.JSON(http.StatusNotImplemented, gin.H{
+		"error": "Session login not implemented yet",
+	})
+}
+
+// ApiGetAllUsers godoc
+// @Summary Get all users
+// @Description Get list of all users (Admin/Moderator only)
+// @Tags Users
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {array} userResp
+// @Failure 403 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/users [get]
+func (h *Handler) ApiGetAllUsers(ctx *gin.Context) {
+	users, err := h.Repository.GetAllUsers()
+	if err != nil {
+		h.errorHandler(ctx, http.StatusInternalServerError, err)
+		return
+	}
+
+	// Преобразуем в response формат
+	var resp []userResp
+	for _, user := range users {
+		resp = append(resp, userResp{
+			UUID:  user.UUID.String(),
+			Name:  user.Name,
+			Login: user.Login,
+			Email: user.Email,
+			Role:  user.Role, // Уже string, не нужно .String()
+		})
+	}
+
+	ctx.JSON(http.StatusOK, resp)
+}
+
+// ApiDeleteUser godoc
+// @Summary Delete user
+// @Description Delete user by UUID (Admin only)
+// @Tags Users
+// @Produce json
+// @Security BearerAuth
+// @Param uuid path string true "User UUID"
+// @Success 204
+// @Failure 400 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/users/{uuid} [delete]
+func (h *Handler) ApiDeleteUser(ctx *gin.Context) {
+	userUUID := ctx.Param("uuid")
+	if userUUID == "" {
+		h.errorHandler(ctx, http.StatusBadRequest, errors.New("user UUID is required"))
+		return
+	}
+
+	if err := h.Repository.DeleteUser(userUUID); err != nil {
+		h.errorHandler(ctx, http.StatusInternalServerError, err)
+		return
+	}
+
+	ctx.Status(http.StatusNoContent)
+}
+
+// ApiUpdateUserRole godoc
+// @Summary Update user role
+// @Description Update user role by UUID (Admin only)
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param uuid path string true "User UUID"
+// @Param request body updateRoleRequest true "New role"
+// @Success 204
+// @Failure 400 {object} map[string]string
+// @Failure 403 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/users/{uuid}/role [put]
+func (h *Handler) ApiUpdateUserRole(ctx *gin.Context) {
+	userUUID := ctx.Param("uuid")
+	if userUUID == "" {
+		h.errorHandler(ctx, http.StatusBadRequest, errors.New("user UUID is required"))
+		return
+	}
+
+	var req updateRoleRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		h.errorHandler(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	newRole := role.FromString(req.Role)
+	if err := h.Repository.UpdateUserRole(userUUID, newRole); err != nil {
+		h.errorHandler(ctx, http.StatusInternalServerError, err)
+		return
+	}
+
+	ctx.Status(http.StatusNoContent)
+}
+
+type apiLoginResp struct {
+	AccessToken string   `json:"access_token"`
+	TokenType   string   `json:"token_type"`
+	ExpiresIn   int64    `json:"expires_in"`
+	User        userResp `json:"user"`
+}
+
+// ApiLogin godoc
+// @Summary User login
+// @Description Authenticate user and return JWT token
+// @Tags Users
+// @Accept json
+// @Produce json
+// @Param request body apiLoginReq true "Login credentials"
+// @Success 200 {object} apiLoginResp
+// @Failure 400 {object} map[string]string
+// @Failure 401 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/auth/login [post]
+func (h *Handler) ApiLogin(ctx *gin.Context) {
+	var req apiLoginReq
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		h.errorHandler(ctx, http.StatusBadRequest, err)
+		return
+	}
+
+	user, err := h.Repository.AuthenticateUser(req.Login, req.Password)
+	if err != nil {
+		h.errorHandler(ctx, http.StatusUnauthorized, err)
+		return
+	}
+
+	// Преобразуем строковую роль обратно в тип Role для JWT
+	userRole := role.FromString(user.Role)
+
+	// Генерируем JWT токен
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, &ds.JWTClaims{
+		StandardClaims: jwt.StandardClaims{
+			ExpiresAt: time.Now().Add(24 * time.Hour).Unix(),
+			IssuedAt:  time.Now().Unix(),
+		},
+		UserUUID: user.UUID,
+		Role:     userRole, // Используем преобразованную роль
+	})
+
+	tokenString, err := token.SignedString([]byte("test")) // используйте секрет из конфига
+	if err != nil {
+		h.errorHandler(ctx, http.StatusInternalServerError, err)
+		return
+	}
+
+	// Устанавливаем куки
+	ctx.SetCookie("jwt_token", tokenString, 3600*24, "/", "", false, true)
+
+	ctx.JSON(http.StatusOK, apiLoginResp{
+		AccessToken: tokenString,
+		TokenType:   "Bearer",
+		ExpiresIn:   24 * 3600,
+		User: userResp{
+			UUID:  user.UUID.String(),
+			Name:  user.Name,
+			Login: user.Login,
+			Email: user.Email,
+			Role:  user.Role, // Уже string, не нужно .String()
+		},
+	})
+}
+
+// RoleMiddleware middleware для проверки ролей
+func (h *Handler) RoleMiddleware(allowedRoles ...role.Role) gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		// Реализация JWT проверки должна быть здесь
-		// Временно разрешаем все запросы
+		userRole, exists := ctx.Get("user_role")
+		if !exists {
+			ctx.JSON(http.StatusUnauthorized, gin.H{"error": "User role not found"})
+			ctx.Abort()
+			return
+		}
+
+		hasAccess := false
+		for _, allowedRole := range allowedRoles {
+			if userRole.(role.Role) == allowedRole {
+				hasAccess = true
+				break
+			}
+		}
+
+		if !hasAccess {
+			ctx.JSON(http.StatusForbidden, gin.H{"error": "Insufficient permissions"})
+			ctx.Abort()
+			return
+		}
+
 		ctx.Next()
 	}
 }

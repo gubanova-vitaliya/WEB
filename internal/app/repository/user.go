@@ -9,6 +9,51 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+// GetCalculationsByUser возвращает заявки пользователя
+func (r *Repository) GetCalculationsByUser(userUUID uuid.UUID) ([]ds.Calculation, error) {
+	var user ds.User
+	if err := r.db.Where("uuid = ?", userUUID).First(&user).Error; err != nil {
+		return nil, err
+	}
+
+	var calculations []ds.Calculation
+	err := r.db.
+		Preload("Gases").
+		Preload("Gases.Gas").
+		Where("creator_id = ?", user.ID).
+		Where("status <> ?", "deleted").
+		Order("date_create DESC").
+		Find(&calculations).Error
+
+	if err != nil {
+		return nil, err
+	}
+
+	return calculations, nil
+}
+
+// CreateCalculation создает новую заявку
+func (r *Repository) CreateCalculation(calculation *ds.Calculation) error {
+	return r.db.Create(calculation).Error
+}
+
+// GetUserCalculations возвращает заявки пользователя по UUID
+func (r *Repository) GetUserCalculations(userUUID string) ([]ds.Calculation, error) {
+	var user ds.User
+	if err := r.db.Where("uuid = ?", userUUID).First(&user).Error; err != nil {
+		return nil, err
+	}
+
+	var calculations []ds.Calculation
+	err := r.db.
+		Where("creator_id = ?", user.ID).
+		Where("status <> ?", "deleted").
+		Order("date_create DESC").
+		Find(&calculations).Error
+
+	return calculations, err
+}
+
 // Register регистрирует нового пользователя
 func (r *Repository) Register(user *ds.User) error {
 	if user.UUID == uuid.Nil {

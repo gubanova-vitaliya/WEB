@@ -4,6 +4,7 @@ import (
 	"WEB/internal/app/ds"
 	"database/sql"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -113,7 +114,7 @@ func (h *Handler) UpdateGasParams(ctx *gin.Context) {
 	}
 
 	// Получаем все параметры из формы
-	params := map[string]interface{}{}
+	params := map[string]float64{}
 
 	if initialPressure := ctx.PostForm("initial_pressure"); initialPressure != "" {
 		if val, err := strconv.ParseFloat(initialPressure, 64); err == nil {
@@ -141,39 +142,15 @@ func (h *Handler) UpdateGasParams(ctx *gin.Context) {
 		}
 	}
 
-	// Обновляем параметры в БД
-	if err := h.Repository.UpdateGasCalculationParams(uint(gasCalcID), params); err != nil {
+	// Выполняем расчет и получаем результат
+	calculatedPressure, err := h.Repository.CalculateGasPressure(uint(gasCalcID), params)
+	if err != nil {
 		h.errorHandler(ctx, http.StatusInternalServerError, err)
 		return
 	}
 
-	// Автоматически пересчитываем давление, если все необходимые параметры есть
-	if finalTemp, hasFinalTemp := params["final_temperature"]; hasFinalTemp {
-		if volume, hasVolume := params["volume"]; hasVolume {
-			if gasAmount, hasGasAmount := params["gas_amount"]; hasGasAmount {
-				// Выполняем расчет
-				calcParams := map[string]float64{
-					"final_temperature": finalTemp.(float64),
-					"volume":            volume.(float64),
-					"gas_amount":        gasAmount.(float64),
-				}
-
-				// Добавляем опциональные параметры если они есть
-				if initialPressure, hasInitialPressure := params["initial_pressure"]; hasInitialPressure {
-					calcParams["initial_pressure"] = initialPressure.(float64)
-				}
-				if initialTemp, hasInitialTemp := params["initial_temperature"]; hasInitialTemp {
-					calcParams["initial_temperature"] = initialTemp.(float64)
-				}
-
-				// Вызываем расчет, но игнорируем возвращаемое значение давления
-				_, _ = h.Repository.CalculateGasPressure(uint(gasCalcID), calcParams)
-			}
-		}
-	}
-
-	// Редирект обратно в журнал
-	ctx.Redirect(http.StatusFound, "/journal")
+	// Редирект с сообщением о результате
+	ctx.Redirect(http.StatusFound, fmt.Sprintf("/journal?message=calculated&pressure=%.4f", calculatedPressure))
 }
 
 // SubmitCalculation отправляет расчет на модерацию
@@ -207,31 +184,41 @@ func (h *Handler) CalculateGasPressure(ctx *gin.Context) {
 
 	// Парсим параметры из формы
 	params := map[string]float64{}
+
+	if gasAmount, err := strconv.ParseFloat(ctx.PostForm("gas_amount"), 64); err == nil && gasAmount > 0 {
+		params["gas_amount"] = gasAmount
+	}
+	if finalTemp, err := strconv.ParseFloat(ctx.PostForm("final_temperature"), 64); err == nil && finalTemp > 0 {
+		params["final_temperature"] = finalTemp
+	}
+	if volume, err := strconv.ParseFloat(ctx.PostForm("volume"), 64); err == nil && volume > 0 {
+		params["volume"] = volume
+	}
 	if initialPressure, err := strconv.ParseFloat(ctx.PostForm("initial_pressure"), 64); err == nil {
 		params["initial_pressure"] = initialPressure
 	}
 	if initialTemp, err := strconv.ParseFloat(ctx.PostForm("initial_temperature"), 64); err == nil {
 		params["initial_temperature"] = initialTemp
 	}
-	if finalTemp, err := strconv.ParseFloat(ctx.PostForm("final_temperature"), 64); err == nil {
-		params["final_temperature"] = finalTemp
-	}
-	if volume, err := strconv.ParseFloat(ctx.PostForm("volume"), 64); err == nil {
-		params["volume"] = volume
-	}
-	if gasAmount, err := strconv.ParseFloat(ctx.PostForm("gas_amount"), 64); err == nil {
-		params["gas_amount"] = gasAmount
-	}
 
-	// Выполняем расчет (игнорируем возвращаемое значение давления)
-	_, err = h.Repository.CalculateGasPressure(uint(gasCalcID), params)
+	// Выполняем расчет
+	calculatedPressure, err := h.Repository.CalculateGasPressure(uint(gasCalcID), params)
 	if err != nil {
-		h.errorHandler(ctx, http.StatusInternalServerError, err)
+		// Показываем ошибку пользователю
+		creatorID := h.Repository.FixedCreatorID()
+		calculation, _ := h.Repository.GetDraftCalculation(creatorID)
+
+		ctx.HTML(http.StatusOK, "journal.html", gin.H{
+			"calculation": calculation,
+			"gases":       calculation.Gases,
+			"cart_count":  len(calculation.Gases),
+			"error":       err.Error(),
+		})
 		return
 	}
 
-	// Редирект обратно в журнал
-	ctx.Redirect(http.StatusFound, "/journal")
+	// Редирект с сообщением о результате
+	ctx.Redirect(http.StatusFound, fmt.Sprintf("/journal?message=calculated&pressure=%.4f", calculatedPressure))
 }
 
 // CalculateAllGases рассчитывает все газы в расчете

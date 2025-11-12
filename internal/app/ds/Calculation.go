@@ -1,3 +1,4 @@
+// internal/app/ds/Calculation.go
 package ds
 
 import (
@@ -12,16 +13,16 @@ type Calculation struct {
 	Status string         `gorm:"type:varchar(15);not null;default:'draft'"`
 	Text   sql.NullString `gorm:"type:text;default:null"`
 
-	// Даты
-	DateCreate time.Time    `gorm:"not null"`
-	DateForm   sql.NullTime `gorm:"default:null"`
-	DateFinish sql.NullTime `gorm:"default:null"`
+	// Три даты как требуется
+	DateCreate   time.Time    `gorm:"not null"`     // Дата создания
+	DateForm     sql.NullTime `gorm:"default:null"` // Дата формирования (после submit)
+	DateComplete sql.NullTime `gorm:"default:null"` // Дата завершения (после complete)
 
 	// Пользователи
 	CreatorID   uint  `gorm:"not null"`
 	ModeratorID *uint `gorm:"default:null"`
 
-	// Параметры расчета (теперь на уровне расчета, а не газа)
+	// Параметры расчета (общие для всего расчета)
 	InitialPressure    sql.NullFloat64 `gorm:"type:decimal(10,4);default:null"`
 	InitialTemperature sql.NullFloat64 `gorm:"type:decimal(10,4);default:null"`
 	FinalTemperature   sql.NullFloat64 `gorm:"type:decimal(10,4);default:null"`

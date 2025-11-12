@@ -2,6 +2,7 @@ package repository
 
 import (
 	"WEB/internal/app/ds"
+	"database/sql"
 	"errors"
 	"time"
 )
@@ -13,42 +14,35 @@ func (r *Repository) CalculateGasPressure(gasCalculationID uint, params map[stri
 		return 0, err
 	}
 
-	// Пытаемся взять значения из параметров, иначе — из сохраненных значений
-	gasAmount, hasAmount := params["gas_amount"]
-	if !hasAmount && gasCalc.GasAmount.Valid {
-		gasAmount = gasCalc.GasAmount.Float64
-		hasAmount = true
-	}
-	finalTemp, hasTemp := params["final_temperature"]
-	if !hasTemp && gasCalc.FinalTemperature.Valid {
-		finalTemp = gasCalc.FinalTemperature.Float64
-		hasTemp = true
-	}
-	volume, hasVolume := params["volume"]
-	if !hasVolume && gasCalc.Volume.Valid {
-		volume = gasCalc.Volume.Float64
-		hasVolume = true
-	}
+	// Получаем значения из параметров или из сохраненных данных
+	gasAmount := getParamValue(params, "gas_amount", gasCalc.GasAmount)
+	finalTemp := getParamValue(params, "final_temperature", gasCalc.FinalTemperature)
+	volume := getParamValue(params, "volume", gasCalc.Volume)
 
-	if !hasAmount || !hasTemp || !hasVolume {
+	// Проверяем, что все обязательные параметры есть
+	if gasAmount == 0 || finalTemp == 0 || volume == 0 {
 		return 0, errors.New("missing required parameters: gas_amount, final_temperature, volume")
 	}
 
-	// Универсальная газовая постоянная
-	const R = 8.314462618 // Дж/(моль·К)
+	// Универсальная газовая постоянная (Дж/(моль·К))
+	const R = 8.314462618
 
 	// Расчет давления по уравнению Менделеева-Клапейрона: P = nRT/V
+	// P в Паскалях, n в молях, T в Кельвинах, V в м³
 	pressure := (gasAmount * R * finalTemp) / volume
 
-	// Обновляем параметры в GasCalculation
+	// Конвертируем в атмосферы (1 атм = 101325 Па)
+	pressureAtm := pressure / 101325.0
+
+	// Подготавливаем обновления
 	updates := map[string]interface{}{
 		"gas_amount":        gasAmount,
 		"final_temperature": finalTemp,
 		"volume":            volume,
-		"final_pressure":    pressure,
+		"final_pressure":    pressureAtm, // Сохраняем в атмосферах
 	}
 
-	// Опциональные параметры
+	// Добавляем опциональные параметры
 	if initialPressure, ok := params["initial_pressure"]; ok {
 		updates["initial_pressure"] = initialPressure
 	}
@@ -56,11 +50,23 @@ func (r *Repository) CalculateGasPressure(gasCalculationID uint, params map[stri
 		updates["initial_temperature"] = initialTemp
 	}
 
+	// Сохраняем в базу
 	if err := r.db.Model(&ds.GasCalculation{}).Where("id = ?", gasCalculationID).Updates(updates).Error; err != nil {
 		return 0, err
 	}
 
-	return pressure, nil
+	return pressureAtm, nil
+}
+
+// Вспомогательная функция для получения значения параметра
+func getParamValue(params map[string]float64, key string, dbValue sql.NullFloat64) float64 {
+	if val, ok := params[key]; ok {
+		return val
+	}
+	if dbValue.Valid {
+		return dbValue.Float64
+	}
+	return 0
 }
 
 // UpdateGasCalculationParams обновляет параметры расчета для газа
@@ -107,15 +113,22 @@ func (r *Repository) CalculateAllGases(calculationID uint) (map[uint]float64, er
 	}
 
 	results := make(map[uint]float64)
+	const R = 8.314462618
+
 	for _, gasCalc := range gasCalcs {
+		// Проверяем, что все необходимые параметры заполнены
 		if gasCalc.GasAmount.Valid && gasCalc.FinalTemperature.Valid && gasCalc.Volume.Valid &&
 			gasCalc.GasAmount.Float64 > 0 && gasCalc.FinalTemperature.Float64 > 0 && gasCalc.Volume.Float64 > 0 {
-			const R = 8.314462618
-			pressure := (gasCalc.GasAmount.Float64 * R * gasCalc.FinalTemperature.Float64) / gasCalc.Volume.Float64
-			results[gasCalc.ID] = pressure
+
+			// Расчет давления в Паскалях
+			pressurePa := (gasCalc.GasAmount.Float64 * R * gasCalc.FinalTemperature.Float64) / gasCalc.Volume.Float64
+
+			// Конвертируем в атмосферы
+			pressureAtm := pressurePa / 101325.0
+			results[gasCalc.ID] = pressureAtm
 
 			// Сохраняем результат
-			r.db.Model(&ds.GasCalculation{}).Where("id = ?", gasCalc.ID).Update("final_pressure", pressure)
+			r.db.Model(&ds.GasCalculation{}).Where("id = ?", gasCalc.ID).Update("final_pressure", pressureAtm)
 		}
 	}
 
@@ -165,10 +178,10 @@ func (r *Repository) ListCalculations(status string, dateFrom string, dateTo str
 			"text":             result.Text,
 			"date_create":      result.DateCreate,
 			"date_form":        result.DateForm,
-			"date_finish":      result.DateFinish,
+			"date_complete":    result.DateComplete,
 			"creator_login":    result.Creator.Login,
 			"moderator_login":  result.Moderator.Login,
-			"calculated_count": result.CalculatedCount, // Новое поле
+			"calculated_count": result.CalculatedCount,
 		})
 	}
 	return out, nil
@@ -204,7 +217,7 @@ func (r *Repository) GetCalculationDetail(id uint) (*ds.Calculation, []map[strin
 
 // UpdateCalculationFields обновляет поля расчета
 func (r *Repository) UpdateCalculationFields(id uint, text *string) error {
-	updates := map[string]interface{}{"date_update": time.Now()}
+	updates := map[string]interface{}{}
 	if text != nil {
 		updates["text"] = *text
 	}
@@ -240,7 +253,7 @@ func (r *Repository) SubmitCalculation(id uint, creatorID uint) error {
 	now := time.Now()
 	return r.db.Model(&ds.Calculation{}).Where("id = ?", id).Updates(map[string]interface{}{
 		"status":    "formed",
-		"date_form": now,
+		"date_form": now, // Устанавливаем дату формирования
 	}).Error
 }
 
@@ -262,10 +275,9 @@ func (r *Repository) CompleteCalculation(id uint, moderatorID uint) error {
 
 	now := time.Now()
 	return r.db.Model(&ds.Calculation{}).Where("id = ?", id).Updates(map[string]interface{}{
-		"status":       "completed",
-		"moderator_id": moderatorID,
-		"date_finish":  now,
-		"date_update":  time.Now(),
+		"status":        "completed",
+		"moderator_id":  moderatorID,
+		"date_complete": now, // Устанавливаем дату завершения
 	}).Error
 }
 
@@ -281,10 +293,9 @@ func (r *Repository) RejectCalculation(id uint, moderatorID uint) error {
 
 	now := time.Now()
 	return r.db.Model(&ds.Calculation{}).Where("id = ?", id).Updates(map[string]interface{}{
-		"status":       "rejected",
-		"moderator_id": moderatorID,
-		"date_finish":  now,
-		"date_update":  time.Now(),
+		"status":        "rejected",
+		"moderator_id":  moderatorID,
+		"date_complete": now,
 	}).Error
 }
 

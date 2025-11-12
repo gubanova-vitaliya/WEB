@@ -11,6 +11,7 @@ import (
 	"gorm.io/gorm"
 )
 
+// cmd/migrate/main.go
 func main() {
 	_ = godotenv.Load()
 	db, err := gorm.Open(postgres.Open(dsn.FromEnv()), &gorm.Config{})
@@ -24,12 +25,11 @@ func main() {
 	// Включаем расширение UUID
 	db.Exec("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"")
 
-	// Удаляем старые таблицы
+	// Удаляем старые таблицы в правильном порядке (из-за foreign keys)
 	db.Migrator().DropTable(&ds.GasCalculation{})
 	db.Migrator().DropTable(&ds.Calculation{})
 	db.Migrator().DropTable(&ds.Gas{})
 	db.Migrator().DropTable(&ds.User{})
-	db.Migrator().DropTable("old_users")
 
 	// Migrate the schema
 	err = db.AutoMigrate(

@@ -72,10 +72,26 @@ type apiGasUpdate struct {
 	Description *string  `json:"description"`
 }
 
-// ApiGetGases GET /api/gases?search=...
+// ApiGetGases GET /api/gases?search=...&min_molar_mass=...&max_molar_mass=...
 func (h *Handler) ApiGetGases(ctx *gin.Context) {
 	search := ctx.Query("search")
-	gases, err := h.Repository.GasList(search)
+
+	var minMolarMass *float64
+	var maxMolarMass *float64
+
+	if minStr := ctx.Query("min_molar_mass"); minStr != "" {
+		if val, err := strconv.ParseFloat(minStr, 64); err == nil {
+			minMolarMass = &val
+		}
+	}
+
+	if maxStr := ctx.Query("max_molar_mass"); maxStr != "" {
+		if val, err := strconv.ParseFloat(maxStr, 64); err == nil {
+			maxMolarMass = &val
+		}
+	}
+
+	gases, err := h.Repository.GasList(search, minMolarMass, maxMolarMass)
 	if err != nil {
 		h.errorHandler(ctx, http.StatusInternalServerError, err)
 		return

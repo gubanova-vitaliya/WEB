@@ -40,12 +40,18 @@ func (r *Repository) SearchGasesByTitle(title string) ([]ds.Gas, error) {
 	return gas, nil
 }
 
-// GasList returns gases with optional title search, excluding soft-deleted
-func (r *Repository) GasList(search string) ([]ds.Gas, error) {
+// GasList returns gases with optional filters, excluding soft-deleted
+func (r *Repository) GasList(search string, minMolarMass *float64, maxMolarMass *float64) ([]ds.Gas, error) {
 	var gases []ds.Gas
 	q := r.db.Model(&ds.Gas{})
 	if search != "" {
 		q = q.Where("title ILIKE ?", "%"+search+"%")
+	}
+	if minMolarMass != nil {
+		q = q.Where("molar_mass >= ?", *minMolarMass)
+	}
+	if maxMolarMass != nil {
+		q = q.Where("molar_mass <= ?", *maxMolarMass)
 	}
 	if err := q.Find(&gases).Error; err != nil {
 		return nil, err

@@ -1,0 +1,19 @@
+header {
+  background-color: #3a6cb0;
+  padding: 16px 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.home-btn {
+  color: white;
+  text-decoration: none;
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: 6px;
+  transition: background-color 0.2s ease;
+}
+
+.home-btn:hover {
+  background-color: rgba(255, 255, 255, 0.2);
+}
+

@@ -259,3 +259,5 @@ WHERE id = 2;
 - Локальные изображения находятся в `public/gas-images/`
 - Изображения из MinIO имеют URL вида: `http://localhost:9000/gases/{filename}`
 
+
+

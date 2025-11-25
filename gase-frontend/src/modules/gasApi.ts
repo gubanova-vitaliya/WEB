@@ -38,9 +38,11 @@ export const getGases = async (filters?: GasFilters): Promise<Gas[]> => {
       image_url: gas.ImageURL || gas.image_url,
       description: gas.Description || gas.description,
     }));
-  } catch (error) {
-    console.warn("Error fetching gases, using mock data:", error);
-    // Используем mock данные при ошибке
+  } catch (error: any) {
+    // Перехватываем все ошибки: сетевые, 500 и т.д.
+    console.warn("Error fetching gases, using mock data:", error.message || error);
+    
+    // Используем mock данные при любой ошибке
     let mockGases = [...GASES_MOCK];
     
     // Применяем фильтры к mock данным
@@ -76,8 +78,8 @@ export const getGasById = async (id: number): Promise<Gas | null> => {
       image_url: data.ImageURL || data.image_url,
       description: data.Description || data.description,
     };
-  } catch (error) {
-    console.warn("Error fetching gas, using mock data:", error);
+  } catch (error: any) {
+    console.warn("Error fetching gas, using mock data:", error.message || error);
     // Используем mock данные при ошибке
     const mockGas = GASES_MOCK.find((gas) => gas.id === id);
     return mockGas || null;

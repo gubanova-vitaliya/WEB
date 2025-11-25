@@ -31,6 +31,14 @@ export const GasDetailPage: FC = () => {
       });
   }, [id]);
 
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    // Если изображение не загрузилось (из MinIO или другого источника), используем дефолтное
+    const target = e.target as HTMLImageElement;
+    if (target.src !== defaultImage) {
+      target.src = defaultImage;
+    }
+  };
+
   if (loading) {
     return (
       <div className="gas-detail-page">
@@ -93,9 +101,8 @@ export const GasDetailPage: FC = () => {
             <img
               src={pageData.image_url || defaultImage}
               alt={pageData.title}
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = defaultImage;
-              }}
+              onError={handleImageError}
+              loading="lazy"
             />
           </div>
 

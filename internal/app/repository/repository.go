@@ -49,6 +49,11 @@ func New(dsn string) (*Repository, error) {
 // Expose DB when needed (read-only)
 func (r *Repository) DB() *gorm.DB { return r.db }
 
+// GetMinIOBaseURL возвращает базовый URL MinIO
+func (r *Repository) GetMinIOBaseURL() string {
+	return r.minioBaseURL
+}
+
 // ---------- Users domain (старая реализация) ----------
 
 var currentUserID uint = 1 // имитация сессии

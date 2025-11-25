@@ -5,6 +5,7 @@ import { BreadCrumbs } from "../components/Breadcrumbs";
 import { ROUTES, ROUTE_LABELS } from "../Routes";
 import { useNavigate } from "react-router-dom";
 import { getGases, GasFilters } from "../modules/gasApi";
+import defaultImage from "/DefaultImage.svg";
 
 export const GasesPage: FC = () => {
   const [gases, setGases] = useState<any[]>([]);
@@ -40,6 +41,14 @@ export const GasesPage: FC = () => {
 
   const handleCardClick = (id: number) => {
     navigate(`${ROUTES.GASES}/${id}`);
+  };
+
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    // Если изображение не загрузилось (из MinIO или другого источника), используем дефолтное
+    const target = e.target as HTMLImageElement;
+    if (target.src !== defaultImage) {
+      target.src = defaultImage;
+    }
   };
 
   return (
@@ -92,11 +101,13 @@ export const GasesPage: FC = () => {
           {gases.map((gas) => (
             <div key={gas.id} className="card">
               <h2>{gas.title}</h2>
-              {gas.image_url ? (
-                <img src={gas.image_url} alt={gas.title} width="150" />
-              ) : (
-                <div className="no-image">No image</div>
-              )}
+              <img
+                src={gas.image_url || defaultImage}
+                alt={gas.title}
+                width="150"
+                onError={handleImageError}
+                loading="lazy"
+              />
               <p>
                 <strong>Формула:</strong> {gas.formula}
               </p>

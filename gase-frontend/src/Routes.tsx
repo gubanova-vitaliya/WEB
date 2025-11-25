@@ -10,3 +10,4 @@ export const ROUTE_LABELS: { [key in RouteKeyType]: string } = {
   GASES: "Газы",
 };
 
+

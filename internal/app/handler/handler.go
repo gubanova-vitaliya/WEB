@@ -74,6 +74,9 @@ func (h *Handler) RegisterAPI(router *gin.Engine) {
 	// Публичные эндпоинты
 	api.GET("/gases", h.ApiGetGases)
 	api.GET("/gases/:id", h.ApiGetGas)
+	api.GET("/cart", h.ApiGetCart)
+	api.GET("/minio/*path", h.ProxyMinIOImage) // Проксирование изображений MinIO
+	api.POST("/gases/:id/add-to-draft", h.ApiAddGasToDraft)
 	api.POST("/auth/register", h.ApiRegister)
 	api.POST("/auth/login", h.ApiLogin)
 

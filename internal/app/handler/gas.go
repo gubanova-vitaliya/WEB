@@ -33,6 +33,7 @@ func (h *Handler) GetAllGases(ctx *gin.Context) {
 		"gases":      gas,
 		"cart_count": h.Repository.GetCartCount(),
 		"search":     search,
+		"message":    ctx.Query("message"),
 	})
 }
 

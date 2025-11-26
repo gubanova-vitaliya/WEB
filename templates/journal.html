@@ -234,7 +234,8 @@
                                    name="initial_pressure"
                                    placeholder="1.0"
                                    value="{{if .InitialPressure.Valid}}{{printf "%.4f" .InitialPressure.Float64}}{{end}}"
-                            class="param-input">
+                                   class="param-input"
+                                   onchange="autoSaveParam({{.ID}}, 'initial_pressure', this.value)">
                         </div>
 
                         <div class="param-group">
@@ -243,7 +244,8 @@
                                    name="initial_temperature"
                                    placeholder="273.15"
                                    value="{{if .InitialTemperature.Valid}}{{printf "%.2f" .InitialTemperature.Float64}}{{end}}"
-                            class="param-input">
+                                   class="param-input"
+                                   onchange="autoSaveParam({{.ID}}, 'initial_temperature', this.value)">
                         </div>
 
                         <div class="param-group">
@@ -252,7 +254,8 @@
                                    name="final_temperature"
                                    placeholder="373.15"
                                    value="{{if .FinalTemperature.Valid}}{{printf "%.2f" .FinalTemperature.Float64}}{{end}}"
-                            class="param-input">
+                                   class="param-input"
+                                   onchange="autoSaveParam({{.ID}}, 'final_temperature', this.value)">
                         </div>
 
                         <div class="param-group">
@@ -261,7 +264,8 @@
                                    name="volume"
                                    placeholder="0.001"
                                    value="{{if .Volume.Valid}}{{printf "%.4f" .Volume.Float64}}{{end}}"
-                            class="param-input">
+                                   class="param-input"
+                                   onchange="autoSaveParam({{.ID}}, 'volume', this.value)">
                         </div>
 
                         <div class="param-group">
@@ -270,7 +274,8 @@
                                    name="gas_amount"
                                    placeholder="0.1"
                                    value="{{if .GasAmount.Valid}}{{printf "%.4f" .GasAmount.Float64}}{{end}}"
-                            class="param-input">
+                                   class="param-input"
+                                   onchange="autoSaveParam({{.ID}}, 'gas_amount', this.value)">
                         </div>
                     </div>
 
@@ -313,5 +318,36 @@
         {{end}}
     </div>
 </main>
+
+<script>
+// Функция автоматического сохранения параметров
+function autoSaveParam(gasCalcId, paramName, value) {
+    if (!value || value.trim() === '') {
+        return; // Не сохраняем пустые значения
+    }
+    
+    // Создаем форму для отправки данных
+    const form = new FormData();
+    form.append(paramName, value);
+    
+    // Отправляем AJAX запрос на сохранение
+    fetch(`/calculation/${gasCalcId}/update`, {
+        method: 'POST',
+        body: form
+    })
+    .then(response => {
+        if (response.ok) {
+            console.log(`Параметр ${paramName} сохранен: ${value}`);
+            // Можно добавить визуальную индикацию успешного сохранения
+        } else {
+            console.error(`Ошибка сохранения параметра ${paramName}`);
+        }
+    })
+    .catch(error => {
+        console.error('Ошибка сети:', error);
+    });
+}
+</script>
+
 </body>
 </html>

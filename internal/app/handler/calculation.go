@@ -31,6 +31,52 @@ type CalculationResponse struct {
 	CreatorID  uint      `json:"creator_id" example:"1"`
 }
 
+// GasCalculationDTO represents gas calculation for API without sql.Null types
+type GasCalculationDTO struct {
+	ID                 uint     `json:"id"`
+	GasID              uint     `json:"gas_id"`
+	Sound              bool     `json:"sound"`
+	Quantity           int      `json:"quantity"`
+	Position           int      `json:"position"`
+	InitialPressure    *float64 `json:"initial_pressure"`
+	InitialTemperature *float64 `json:"initial_temperature"`
+	FinalTemperature   *float64 `json:"final_temperature"`
+	Volume             *float64 `json:"volume"`
+	GasAmount          *float64 `json:"gas_amount"`
+	FinalPressure      *float64 `json:"final_pressure"`
+	Gas                GasDTO   `json:"gas"`
+}
+
+// GasDTO represents gas for API
+type GasDTO struct {
+	ID          int     `json:"id"`
+	Title       string  `json:"title"`
+	Formula     string  `json:"formula"`
+	MolarMass   float64 `json:"molar_mass"`
+	ImageURL    string  `json:"image_url"`
+	Description string  `json:"description"`
+}
+
+// CalculationDetailDTO represents full calculation with gases for API
+type CalculationDetailDTO struct {
+	ID                 uint                `json:"id"`
+	Status             string              `json:"status"`
+	Text               string              `json:"text"`
+	DateCreate         time.Time           `json:"date_create"`
+	DateForm           *time.Time          `json:"date_form"`
+	DateComplete       *time.Time          `json:"date_complete"`
+	CreatorID          uint                `json:"creator_id"`
+	ModeratorID        *uint               `json:"moderator_id"`
+	InitialPressure    *float64            `json:"initial_pressure"`
+	InitialTemperature *float64            `json:"initial_temperature"`
+	FinalTemperature   *float64            `json:"final_temperature"`
+	Volume             *float64            `json:"volume"`
+	GasAmount          *float64            `json:"gas_amount"`
+	FinalPressure      *float64            `json:"final_pressure"`
+	GasesCount         int                 `json:"gases_count"`
+	Gases              []GasCalculationDTO `json:"gases"`
+}
+
 // -------- HTML Handlers --------
 
 // AddGasToCalculation добавляет газ в расчет - POST запрос №4
@@ -59,8 +105,8 @@ func (h *Handler) AddGasToCalculation(ctx *gin.Context) {
 		return
 	}
 
-	// Редирект обратно на страницу газов
-	ctx.Redirect(http.StatusFound, "/gas")
+	// Редирект обратно на страницу газов с сообщением об успехе
+	ctx.Redirect(http.StatusFound, "/gas?message=added")
 }
 
 // GetJournal отображает журнал расчетов - GET запрос №3
@@ -104,7 +150,7 @@ func (h *Handler) RemoveGasFromCalculation(ctx *gin.Context) {
 	ctx.Redirect(http.StatusFound, "/journal")
 }
 
-// UpdateGasParams обновляет параметры одного поля и пересчитывает давление
+// UpdateGasParams обновляет параметры одного поля БЕЗ пересчета давления
 func (h *Handler) UpdateGasParams(ctx *gin.Context) {
 	gasCalcIDStr := ctx.Param("id")
 	gasCalcID, err := strconv.ParseUint(gasCalcIDStr, 10, 32)
@@ -114,7 +160,7 @@ func (h *Handler) UpdateGasParams(ctx *gin.Context) {
 	}
 
 	// Получаем все параметры из формы
-	params := map[string]float64{}
+	params := map[string]interface{}{}
 
 	if initialPressure := ctx.PostForm("initial_pressure"); initialPressure != "" {
 		if val, err := strconv.ParseFloat(initialPressure, 64); err == nil {
@@ -142,15 +188,16 @@ func (h *Handler) UpdateGasParams(ctx *gin.Context) {
 		}
 	}
 
-	// Выполняем расчет и получаем результат
-	calculatedPressure, err := h.Repository.CalculateGasPressure(uint(gasCalcID), params)
-	if err != nil {
-		h.errorHandler(ctx, http.StatusInternalServerError, err)
-		return
+	// Сохраняем параметры БЕЗ расчета
+	if len(params) > 0 {
+		if err := h.Repository.UpdateGasCalculationParams(uint(gasCalcID), params); err != nil {
+			h.errorHandler(ctx, http.StatusInternalServerError, err)
+			return
+		}
 	}
 
-	// Редирект с сообщением о результате
-	ctx.Redirect(http.StatusFound, fmt.Sprintf("/journal?message=calculated&pressure=%.4f", calculatedPressure))
+	// Возвращаем успешный ответ для AJAX
+	ctx.JSON(http.StatusOK, gin.H{"status": "saved"})
 }
 
 // SubmitCalculation отправляет расчет на модерацию
@@ -614,8 +661,118 @@ func (h *Handler) SaveAllGasParams(ctx *gin.Context) {
 // @Failure 500 {object} map[string]string
 // @Router /api/my-calculations [get]
 func (h *Handler) ApiGetMyCalculations(ctx *gin.Context) {
-	// ВРЕМЕННО: Возвращаем пустой массив для тестирования
-	ctx.JSON(http.StatusOK, []CalculationResponse{})
+	userUUID, exists := ctx.Get("user_uuid")
+	if !exists {
+		h.errorHandler(ctx, http.StatusUnauthorized, errors.New("user not authenticated"))
+		return
+	}
+
+	calculations, err := h.Repository.GetUserCalculations(userUUID.(string))
+	if err != nil {
+		h.errorHandler(ctx, http.StatusInternalServerError, err)
+		return
+	}
+
+	// Преобразуем в DTO
+	var response []CalculationResponse
+	for _, calc := range calculations {
+		response = append(response, CalculationResponse{
+			ID:         calc.ID,
+			Status:     calc.Status,
+			Text:       calc.Text.String,
+			DateCreate: calc.DateCreate,
+			CreatorID:  calc.CreatorID,
+		})
+	}
+
+	ctx.JSON(http.StatusOK, response)
+}
+
+// ApiGetMyDraft godoc
+// @Summary Get user's draft calculation
+// @Description Get current user's draft calculation with gases
+// @Tags Calculations
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} CalculationDetailDTO
+// @Failure 401 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /api/my-draft [get]
+func (h *Handler) ApiGetMyDraft(ctx *gin.Context) {
+	// Используем фиксированный ID как в веб-интерфейсе
+	creatorID := uint(1)
+
+	// Получаем черновик расчета с газами
+	calculation, err := h.Repository.GetDraftCalculation(creatorID)
+	if err != nil {
+		h.errorHandler(ctx, http.StatusInternalServerError, err)
+		return
+	}
+
+	// Преобразуем в DTO без sql.Null типов
+	response := CalculationDetailDTO{
+		ID:                 calculation.ID,
+		Status:             calculation.Status,
+		Text:               calculation.Text.String,
+		DateCreate:         calculation.DateCreate,
+		DateForm:           nullTimeToPointer(calculation.DateForm),
+		DateComplete:       nullTimeToPointer(calculation.DateComplete),
+		CreatorID:          calculation.CreatorID,
+		ModeratorID:        calculation.ModeratorID,
+		InitialPressure:    nullFloat64ToFloat(calculation.InitialPressure),
+		InitialTemperature: nullFloat64ToFloat(calculation.InitialTemperature),
+		FinalTemperature:   nullFloat64ToFloat(calculation.FinalTemperature),
+		Volume:             nullFloat64ToFloat(calculation.Volume),
+		GasAmount:          nullFloat64ToFloat(calculation.GasAmount),
+		FinalPressure:      nullFloat64ToFloat(calculation.FinalPressure),
+		GasesCount:         len(calculation.Gases),
+		Gases:              convertGasCalculationsToDTO(calculation.Gases),
+	}
+
+	ctx.JSON(http.StatusOK, response)
+}
+
+// Вспомогательные функции для конвертации sql.Null типов
+func nullTimeToPointer(nt sql.NullTime) *time.Time {
+	if nt.Valid {
+		return &nt.Time
+	}
+	return nil
+}
+
+func nullFloat64ToFloat(nf sql.NullFloat64) *float64 {
+	if nf.Valid {
+		return &nf.Float64
+	}
+	return nil
+}
+
+func convertGasCalculationsToDTO(gasCalcs []ds.GasCalculation) []GasCalculationDTO {
+	result := make([]GasCalculationDTO, len(gasCalcs))
+	for i, gc := range gasCalcs {
+		result[i] = GasCalculationDTO{
+			ID:                 gc.ID,
+			GasID:              gc.GasID,
+			Sound:              gc.Sound,
+			Quantity:           gc.Quantity,
+			Position:           gc.Position,
+			InitialPressure:    nullFloat64ToFloat(gc.InitialPressure),
+			InitialTemperature: nullFloat64ToFloat(gc.InitialTemperature),
+			FinalTemperature:   nullFloat64ToFloat(gc.FinalTemperature),
+			Volume:             nullFloat64ToFloat(gc.Volume),
+			GasAmount:          nullFloat64ToFloat(gc.GasAmount),
+			FinalPressure:      nullFloat64ToFloat(gc.FinalPressure),
+			Gas: GasDTO{
+				ID:          gc.Gas.ID,
+				Title:       gc.Gas.Title,
+				Formula:     gc.Gas.Formula,
+				MolarMass:   gc.Gas.MolarMass,
+				ImageURL:    gc.Gas.ImageURL,
+				Description: gc.Gas.Description,
+			},
+		}
+	}
+	return result
 }
 
 // ApiCreateCalculation godoc

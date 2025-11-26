@@ -94,6 +94,7 @@ func (h *Handler) RegisterAPI(router *gin.Engine) {
 
 		// Заявки пользователя
 		protected.GET("/my-calculations", h.ApiGetMyCalculations)
+		protected.GET("/my-draft", h.ApiGetMyDraft) // Получить черновик как заявку
 		protected.POST("/calculations", h.ApiCreateCalculation)
 		protected.PUT("/calculations/:id", h.ApiUpdateCalculation)
 		protected.POST("/calculations/:id/submit", h.ApiSubmitCalculation)
@@ -124,37 +125,48 @@ func (h *Handler) RegisterAPI(router *gin.Engine) {
 // AuthMiddleware middleware для проверки JWT
 func (h *Handler) AuthMiddleware() gin.HandlerFunc {
 	return func(ctx *gin.Context) {
-		// ВРЕМЕННО: пропускаем все запросы для тестирования
-		authHeader := ctx.GetHeader("Authorization")
+		var tokenString string
 
+		// Сначала пытаемся получить токен из заголовка Authorization
+		authHeader := ctx.GetHeader("Authorization")
 		if authHeader != "" {
-			// Пытаемся распарсить токен, но не блокируем если ошибка
 			parts := strings.Split(authHeader, " ")
 			if len(parts) == 2 && parts[0] == "Bearer" {
-				tokenString := parts[1]
-				claims := &ds.JWTClaims{}
+				tokenString = parts[1]
+			}
+		}
 
-				// Парсим без строгой проверки (для тестирования)
-				parser := jwt.Parser{
-					SkipClaimsValidation: true, // Пропускаем проверку времени
-				}
-				token, err := parser.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
-					return []byte("test"), nil
-				})
+		// Если токена нет в заголовке, пытаемся получить из куки
+		if tokenString == "" {
+			if cookie, err := ctx.Cookie("jwt_token"); err == nil {
+				tokenString = cookie
+			}
+		}
 
-				if err == nil && token != nil {
-					// Если токен валиден, сохраняем claims
-					ctx.Set("jwt_claims", claims)
-					ctx.Set("user_uuid", claims.UserUUID.String())
-					ctx.Set("user_role", claims.Role)
-				}
+		// Если токен найден, пытаемся его распарсить
+		if tokenString != "" {
+			claims := &ds.JWTClaims{}
+
+			// Парсим без строгой проверки (для тестирования)
+			parser := jwt.Parser{
+				SkipClaimsValidation: true, // Пропускаем проверку времени
+			}
+			token, err := parser.ParseWithClaims(tokenString, claims, func(token *jwt.Token) (interface{}, error) {
+				return []byte("test"), nil
+			})
+
+			if err == nil && token != nil {
+				// Если токен валиден, сохраняем claims
+				ctx.Set("jwt_claims", claims)
+				ctx.Set("user_uuid", claims.UserUUID.String())
+				ctx.Set("user_role", claims.Role)
 			}
 		}
 
 		// Если нет валидного токена, устанавливаем заглушечные данные
 		if _, exists := ctx.Get("user_uuid"); !exists {
-			// Создаем UUID из вашего токена
-			userUUID, _ := uuid.Parse("676e1c14-a4b0-423f-base-fb53f4b0f657")
+			// Используем UUID созданного тестового пользователя
+			userUUID, _ := uuid.Parse("39294118-7335-435e-b808-d530b93c98a4")
 			ctx.Set("user_uuid", userUUID.String())
 			ctx.Set("user_role", role.Buyer)
 		}
@@ -285,6 +297,9 @@ func (h *Handler) ApiGetProfile(ctx *gin.Context) {
 // @Success 204
 // @Router /api/auth/logout [post]
 func (h *Handler) ApiLogout(ctx *gin.Context) {
+	// Очищаем куки
+	ctx.SetCookie("jwt_token", "", -1, "/", "", false, true)
+
 	h.Repository.UserLogout()
 	ctx.Status(204)
 }

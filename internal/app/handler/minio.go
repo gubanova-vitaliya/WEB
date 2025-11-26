@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"log"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -15,8 +16,14 @@ func (h *Handler) ProxyMinIOImage(ctx *gin.Context) {
 		return
 	}
 
+	// Убираем ведущий слэш из path если он есть
+	if len(path) > 0 && path[0] == '/' {
+		path = path[1:]
+	}
+
 	// Формируем URL к MinIO
 	minioURL := h.Repository.GetMinIOBaseURL() + "/" + path
+	log.Printf("ProxyMinIOImage: path=%s, minioURL=%s", path, minioURL)
 
 	// Делаем запрос к MinIO
 	resp, err := http.Get(minioURL)

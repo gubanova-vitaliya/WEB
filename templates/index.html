@@ -28,6 +28,16 @@
         {{end}}
     </div>
 
+    {{if .message}}
+    <div class="message-container">
+        {{if eq .message "added"}}
+        <div class="success-message">
+            ✅ Газ успешно добавлен в расчеты!
+        </div>
+        {{end}}
+    </div>
+    {{end}}
+
     <form method="get" action="/gas" class="search-form">
         <input type="text" name="search" placeholder="Поиск газа..." value="{{.search}}">
         <button type="submit">🔍 Поиск газа</button>

@@ -18,6 +18,13 @@ interface GasCardProps {
 }
 
 export const GasCard: FC<GasCardProps> = ({ gas, onCardClick }) => {
+  const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
+    const target = e.target as HTMLImageElement;
+    if (target.src !== defaultImage) {
+      target.src = defaultImage;
+    }
+  };
+
   return (
     <Card className="gas-card">
       <Card.Img
@@ -26,6 +33,7 @@ export const GasCard: FC<GasCardProps> = ({ gas, onCardClick }) => {
         src={gas.image_url || defaultImage}
         alt={gas.title}
         onClick={() => onCardClick(gas.id)}
+        onError={handleImageError}
         style={{ cursor: "pointer" }}
       />
       <Card.Body>

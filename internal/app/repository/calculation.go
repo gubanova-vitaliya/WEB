@@ -4,7 +4,10 @@ import (
 	"WEB/internal/app/ds"
 	"database/sql"
 	"errors"
+	"strings"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 // CalculateGasPressure рассчитывает давление для конкретного газа в расчете
@@ -375,20 +378,44 @@ func (r *Repository) ensureDraftCalculation(creatorID uint) (*ds.Calculation, er
 
 // addGasToDraftDB creates m-m link if not exists
 func (r *Repository) addGasToDraftDB(gasID uint, creatorID uint) error {
+	logrus.Infof("addGasToDraftDB: gasID=%d, creatorID=%d", gasID, creatorID)
+
 	calc, err := r.ensureDraftCalculation(creatorID)
 	if err != nil {
+		logrus.Errorf("ensureDraftCalculation error: %v", err)
 		return err
 	}
+	logrus.Infof("Draft calculation ID: %d", calc.ID)
+
 	// check gas exists
 	var gas ds.Gas
 	if err := r.db.First(&gas, gasID).Error; err != nil {
+		logrus.Errorf("Gas not found: %v", err)
 		return err
 	}
-	// create m-m unique pair
-	mm := ds.GasCalculation{CalculationID: calc.ID, GasID: gasID, Sound: true}
-	if err := r.db.Create(&mm).Error; err != nil {
+	logrus.Infof("Gas found: %s", gas.Title)
+
+	// Try to create the record, if it fails due to duplicate key, ignore the error
+	mm := ds.GasCalculation{
+		CalculationID: calc.ID,
+		GasID:         gasID,
+		Sound:         true,
+		Quantity:      1,
+		Position:      0,
+	}
+
+	err = r.db.Create(&mm).Error
+	if err != nil {
+		// Check if it's a duplicate key error
+		if strings.Contains(err.Error(), "idx_calculation_gas") || strings.Contains(err.Error(), "duplicate key") {
+			logrus.Infof("Gas already exists in calculation, ignoring duplicate key error")
+			return nil // Ignore duplicate key error - gas is already in calculation
+		}
+		logrus.Errorf("Error creating gas calculation: %v", err)
 		return err
 	}
+
+	logrus.Infof("Gas calculation created successfully")
 	return nil
 }
 

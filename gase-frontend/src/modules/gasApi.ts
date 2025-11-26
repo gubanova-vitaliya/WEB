@@ -5,6 +5,31 @@ export interface GasFilters {
   search?: string;
 }
 
+// Функция для преобразования URL изображений MinIO в прокси URL
+const transformImageUrl = (imageUrl: string | null): string | null => {
+  if (!imageUrl) return null;
+  
+  // Если URL указывает на MinIO (localhost:9000 или 127.0.0.1:9000), заменяем на прокси
+  if (imageUrl.includes('localhost:9000') || imageUrl.includes('127.0.0.1:9000')) {
+    // Извлекаем путь после домена (например: /gase/azot.webp)
+    const urlParts = imageUrl.split('/');
+    const pathIndex = urlParts.findIndex(part => part === 'gase' || part === 'gases');
+    
+    if (pathIndex !== -1) {
+      let path = urlParts.slice(pathIndex).join('/');
+      
+      // Исправляем неправильное имя bucket: gase -> gases
+      if (path.startsWith('gase/')) {
+        path = path.replace('gase/', 'gases/');
+      }
+      
+      return `/api/minio/${path}`;
+    }
+  }
+  
+  return imageUrl;
+};
+
 export const getGases = async (filters?: GasFilters): Promise<Gas[]> => {
   try {
     const params = new URLSearchParams();
@@ -35,7 +60,7 @@ export const getGases = async (filters?: GasFilters): Promise<Gas[]> => {
       title: gas.Title || gas.title,
       formula: gas.Formula || gas.formula,
       molar_mass: gas.MolarMass || gas.molar_mass,
-      image_url: gas.ImageURL || gas.image_url,
+      image_url: transformImageUrl(gas.ImageURL || gas.image_url),
       description: gas.Description || gas.description,
     }));
   } catch (error: any) {
@@ -75,7 +100,7 @@ export const getGasById = async (id: number): Promise<Gas | null> => {
       title: data.Title || data.title,
       formula: data.Formula || data.formula,
       molar_mass: data.MolarMass || data.molar_mass,
-      image_url: data.ImageURL || data.image_url,
+      image_url: transformImageUrl(data.ImageURL || data.image_url),
       description: data.Description || data.description,
     };
   } catch (error: any) {

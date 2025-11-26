@@ -19,6 +19,7 @@ func (r *Repository) GetAllGases() ([]ds.Gas, error) {
 	if err != nil {
 		return nil, err
 	}
+	r.normalizeGasImages(gas)
 	return gas, nil
 }
 
@@ -28,6 +29,7 @@ func (r *Repository) GetGasByID(id int) (*ds.Gas, error) {
 	if err != nil {
 		return nil, err
 	}
+	r.normalizeGasImage(&gas)
 	return &gas, nil
 }
 
@@ -37,6 +39,7 @@ func (r *Repository) SearchGasesByTitle(title string) ([]ds.Gas, error) {
 	if err != nil {
 		return nil, err
 	}
+	r.normalizeGasImages(gas)
 	return gas, nil
 }
 
@@ -56,6 +59,7 @@ func (r *Repository) GasList(search string, minMolarMass *float64, maxMolarMass 
 	if err := q.Find(&gases).Error; err != nil {
 		return nil, err
 	}
+	r.normalizeGasImages(gases)
 	return gases, nil
 }
 
@@ -134,7 +138,8 @@ func (r *Repository) GasUploadImage(ctx interface{ Done() <-chan struct{} }, id 
 	if err != nil {
 		return "", err
 	}
-	url := r.minioBaseURL + "/" + r.minioBucket + "/" + objectName
+	objectPath := r.minioBucket + "/" + objectName
+	proxyURL := r.buildProxyURL(objectPath)
 	// remove previous image if exists
 	var gas ds.Gas
 	if err := r.db.First(&gas, id).Error; err == nil && gas.ImageURL != "" {
@@ -144,10 +149,10 @@ func (r *Repository) GasUploadImage(ctx interface{ Done() <-chan struct{} }, id 
 			_ = client.RemoveObject(c, r.minioBucket, oldName, minio.RemoveObjectOptions{})
 		}
 	}
-	if err := r.db.Model(&ds.Gas{}).Where("id = ?", id).Update("image_url", url).Error; err != nil {
+	if err := r.db.Model(&ds.Gas{}).Where("id = ?", id).Update("image_url", proxyURL).Error; err != nil {
 		return "", err
 	}
-	return url, nil
+	return proxyURL, nil
 }
 
 // FixedCreatorID returns singleton creator user id
@@ -162,4 +167,45 @@ func (r *Repository) AddGasToDraft(gasID uint, creatorID uint) error {
 // GetDraftCartInfo returns draft id and active gases count
 func (r *Repository) GetDraftCartInfo(creatorID uint) (uint, int64, error) {
 	return r.draftCartInfo(creatorID)
+}
+
+const minioProxyPrefix = "/api/minio/"
+
+func (r *Repository) buildProxyURL(objectPath string) string {
+	path := strings.TrimPrefix(objectPath, "/")
+	if path == "" {
+		return ""
+	}
+	return minioProxyPrefix + path
+}
+
+func (r *Repository) normalizeGasImages(gases []ds.Gas) {
+	for i := range gases {
+		gases[i].ImageURL = r.normalizeImageURL(gases[i].ImageURL)
+	}
+}
+
+func (r *Repository) normalizeGasImage(gas *ds.Gas) {
+	if gas == nil {
+		return
+	}
+	gas.ImageURL = r.normalizeImageURL(gas.ImageURL)
+}
+
+func (r *Repository) normalizeImageURL(raw string) string {
+	if raw == "" || strings.HasPrefix(raw, minioProxyPrefix) {
+		return raw
+	}
+	marker := r.minioBucket + "/"
+	if idx := strings.Index(raw, marker); idx >= 0 {
+		path := strings.TrimPrefix(raw[idx:], "/")
+		return minioProxyPrefix + path
+	}
+	if !strings.HasPrefix(raw, "http://") && !strings.HasPrefix(raw, "https://") {
+		path := strings.TrimPrefix(raw, "/")
+		if path != "" {
+			return minioProxyPrefix + path
+		}
+	}
+	return raw
 }

@@ -1,8 +1,6 @@
 import "./GasDetailPage.css";
 import { FC, useEffect, useState } from "react";
-import { BreadCrumbs } from "../components/Breadcrumbs";
-import { ROUTES, ROUTE_LABELS } from "../Routes";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import { Gas } from "../components/GasCard";
 import { getGasById } from "../modules/gasApi";
 import { Spinner } from "react-bootstrap";
@@ -13,7 +11,6 @@ export const GasDetailPage: FC = () => {
   const [loading, setLoading] = useState(true);
 
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
 
   useEffect(() => {
     if (!id) return;
@@ -42,12 +39,6 @@ export const GasDetailPage: FC = () => {
   if (loading) {
     return (
       <div className="gas-detail-page">
-        <BreadCrumbs
-          crumbs={[
-            { label: ROUTE_LABELS.GASES, path: ROUTES.GASES },
-            { label: "Загрузка..." },
-          ]}
-        />
         <div className="loader-block">
           <Spinner animation="border" />
         </div>
@@ -58,23 +49,14 @@ export const GasDetailPage: FC = () => {
   if (!pageData) {
     return (
       <div className="gas-detail-page">
-        <BreadCrumbs
-          crumbs={[
-            { label: ROUTE_LABELS.GASES, path: ROUTES.GASES },
-            { label: "Газ не найден" },
-          ]}
-        />
         <div className="gas-detail-container">
           <div className="gas-card">
             <div className="not-found">
               <h2>Газ не найден</h2>
               <p>Запрошенный газ не существует или был удален</p>
-              <a href={ROUTES.GASES} className="yellow-btn" onClick={(e) => {
-                e.preventDefault();
-                navigate(ROUTES.GASES);
-              }}>
-                Вернуться к каталогу
-              </a>
+              <div className="yellow-btn disabled-link">
+                Вернитесь в каталог через меню навигации
+              </div>
             </div>
           </div>
         </div>
@@ -84,12 +66,6 @@ export const GasDetailPage: FC = () => {
 
   return (
     <div className="gas-detail-page">
-      <BreadCrumbs
-        crumbs={[
-          { label: ROUTE_LABELS.GASES, path: ROUTES.GASES },
-          { label: pageData.title },
-        ]}
-      />
       <div className="gas-detail-container">
         <div className="gas-card">
           <div className="gas-header">

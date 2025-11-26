@@ -1,5 +1,5 @@
-import { Routes, Route } from "react-router-dom";
-import { Navbar } from "./components/Navbar";
+import { Routes, Route, Navigate } from "react-router-dom";
+import { AppNavbar } from "./components/Navbar";
 import { HomePage } from "./pages/HomePage";
 import { GasesPage } from "./pages/GasesPage";
 import { GasDetailPage } from "./pages/GasDetailPage";
@@ -8,11 +8,12 @@ import { ROUTES } from "./Routes";
 function App() {
   return (
     <>
-      <Navbar />
+      <AppNavbar />
       <Routes>
         <Route path={ROUTES.HOME} element={<HomePage />} />
         <Route path={ROUTES.GASES} element={<GasesPage />} />
         <Route path={`${ROUTES.GASES}/:id`} element={<GasDetailPage />} />
+        <Route path="*" element={<Navigate to={ROUTES.HOME} replace />} />
       </Routes>
     </>
   );

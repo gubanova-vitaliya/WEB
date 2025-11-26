@@ -36,6 +36,10 @@ func (h *Handler) errorHandler(ctx *gin.Context, errorStatusCode int, err error)
 
 // RegisterHandler Функция, в которой мы отдельно регистрируем маршруты
 func (h *Handler) RegisterHandler(router *gin.Engine) {
+	// Базовые алиасы, чтобы / и /gases не отдавали 404
+	router.GET("/", h.GetAllGases)
+	router.GET("/gases", h.GetAllGases)
+
 	// 1. GET-запрос на просмотр всех карточек на главной странице
 	router.GET("/gas", h.GetAllGases)
 

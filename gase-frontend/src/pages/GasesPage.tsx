@@ -1,7 +1,6 @@
 import "./GasesPage.css";
 import { FC, useState, useEffect } from "react";
 import { Spinner } from "react-bootstrap";
-import { BreadCrumbs } from "../components/Breadcrumbs";
 import { ROUTES, ROUTE_LABELS } from "../Routes";
 import { useNavigate } from "react-router-dom";
 import { getGases, GasFilters } from "../modules/gasApi";
@@ -53,9 +52,8 @@ export const GasesPage: FC = () => {
 
   return (
     <div className="gases-page">
-      <BreadCrumbs crumbs={[{ label: ROUTE_LABELS.GASES }]} />
       <div className="page-header">
-        <h1>Каталог газов</h1>
+          <h1>{ROUTE_LABELS.GASES}</h1>
         <a
           href="#"
           className={`cart-link ${cartCount > 0 ? "active" : "inactive"}`}

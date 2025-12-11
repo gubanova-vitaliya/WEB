@@ -4,6 +4,7 @@ import (
 	"WEB/internal/app/config"
 	"WEB/internal/app/ds"
 	"WEB/internal/app/handler"
+	"WEB/internal/app/redis"
 	"WEB/internal/app/repository"
 	"WEB/internal/app/role"
 	"encoding/json"
@@ -22,16 +23,16 @@ type Application struct {
 	Router      *gin.Engine
 	Handler     *handler.Handler
 	Repository  *repository.Repository
-	RedisClient interface{} // временно interface{} вместо *redis.Client
+	RedisClient *redis.Client
 }
 
-func NewApp(c *config.Config, r *gin.Engine, h *handler.Handler, repo *repository.Repository) (*Application, error) {
-	// Временно отключаем Redis
+func NewApp(c *config.Config, r *gin.Engine, h *handler.Handler, repo *repository.Repository, redisClient *redis.Client) (*Application, error) {
 	return &Application{
-		Config:     c,
-		Router:     r,
-		Handler:    h,
-		Repository: repo,
+		Config:      c,
+		Router:      r,
+		Handler:     h,
+		Repository:  repo,
+		RedisClient: redisClient,
 	}, nil
 }
 

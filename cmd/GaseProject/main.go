@@ -5,8 +5,10 @@ import (
 	"WEB/internal/app/config"
 	"WEB/internal/app/dsn"
 	"WEB/internal/app/handler"
+	"WEB/internal/app/redis"
 	"WEB/internal/app/repository"
 	"WEB/internal/pkg"
+	"context"
 	"fmt"
 
 	"github.com/gin-gonic/gin"
@@ -52,9 +54,20 @@ func main() {
 		logrus.Fatalf("error initializing repository: %v", err)
 	}
 
-	hand := handler.NewHandler(rep)
+	// Инициализируем Redis клиент
+	ctx := context.Background()
+	redisClient, err := redis.New(ctx, conf.Redis)
+	if err != nil {
+		logrus.Warnf("error initializing Redis (continuing without Redis): %v", err)
+		redisClient = nil
+	} else {
+		logrus.Info("Redis client initialized successfully")
+		defer redisClient.Close()
+	}
 
-	application, err := pkg.NewApp(conf, router, hand, rep)
+	hand := handler.NewHandler(rep, redisClient)
+
+	application, err := pkg.NewApp(conf, router, hand, rep, redisClient)
 	if err != nil {
 		logrus.Fatalf("error creating application: %v", err)
 	}

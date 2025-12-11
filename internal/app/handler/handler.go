@@ -2,8 +2,10 @@ package handler
 
 import (
 	"WEB/internal/app/ds"
+	"WEB/internal/app/redis"
 	"WEB/internal/app/repository"
 	"WEB/internal/app/role"
+	"context"
 	"errors"
 	"net/http"
 	"strings"
@@ -17,11 +19,13 @@ import (
 
 type Handler struct {
 	Repository *repository.Repository
+	Redis      *redis.Client
 }
 
-func NewHandler(r *repository.Repository) *Handler {
+func NewHandler(r *repository.Repository, redisClient *redis.Client) *Handler {
 	return &Handler{
 		Repository: r,
+		Redis:      redisClient,
 	}
 }
 
@@ -136,8 +140,9 @@ func (h *Handler) AuthMiddleware() gin.HandlerFunc {
 				})
 
 				if err == nil && token != nil {
-					// Если токен валиден, сохраняем claims
+					// Если токен валиден, сохраняем claims и сам токен
 					ctx.Set("jwt_claims", claims)
+					ctx.Set("jwt_token", tokenString) // Сохраняем токен для использования в logout
 					ctx.Set("user_uuid", claims.UserUUID.String())
 					ctx.Set("user_role", claims.Role)
 				}
@@ -278,8 +283,116 @@ func (h *Handler) ApiGetProfile(ctx *gin.Context) {
 // @Success 204
 // @Router /api/auth/logout [post]
 func (h *Handler) ApiLogout(ctx *gin.Context) {
+	logrus.Info("=== ApiLogout called ===")
+
+	// Получаем токен из заголовка
+	authHeader := ctx.GetHeader("Authorization")
+	logrus.Infof("Authorization header present: %v", authHeader != "")
+	if authHeader != "" {
+		logrus.Infof("Authorization header length: %d", len(authHeader))
+	}
+	logrus.Infof("Redis client is nil: %v", h.Redis == nil)
+
+	var token string
+	var tokenFound bool
+
+	// Пытаемся получить токен из заголовка Authorization
+	if authHeader != "" {
+		parts := strings.Split(authHeader, " ")
+		logrus.Infof("Authorization header parts count: %d", len(parts))
+
+		if len(parts) == 2 && parts[0] == "Bearer" {
+			token = parts[1]
+			tokenFound = true
+			logrus.Infof("Token extracted from Authorization header (first 30 chars): %s...", token[:min(30, len(token))])
+		} else {
+			logrus.Warnf("Invalid Authorization header format. Expected 'Bearer <token>', got: %s", authHeader)
+		}
+	}
+
+	// Если токен не найден в заголовке, пытаемся получить из cookie (fallback)
+	if !tokenFound {
+		cookieToken, err := ctx.Cookie("jwt_token")
+		if err == nil && cookieToken != "" {
+			token = cookieToken
+			tokenFound = true
+			logrus.Infof("Token extracted from cookie (first 30 chars): %s...", token[:min(30, len(token))])
+		}
+	}
+
+	// Если токен все еще не найден, пытаемся получить из контекста (сохранен в middleware)
+	if !tokenFound {
+		if savedToken, exists := ctx.Get("jwt_token"); exists {
+			if tokenStr, ok := savedToken.(string); ok && tokenStr != "" {
+				token = tokenStr
+				tokenFound = true
+				logrus.Infof("Token extracted from context (saved by middleware) (first 30 chars): %s...", token[:min(30, len(token))])
+			}
+		}
+	}
+
+	// Если токен все еще не найден, пытаемся получить из query параметра (для тестирования)
+	if !tokenFound {
+		queryToken := ctx.Query("token")
+		if queryToken != "" {
+			token = queryToken
+			tokenFound = true
+			logrus.Infof("Token extracted from query parameter (first 30 chars): %s...", token[:min(30, len(token))])
+		}
+	}
+
+	if !tokenFound {
+		logrus.Warn("Token not found in Authorization header, cookie, context, or query parameter")
+	}
+
+	if !tokenFound {
+		logrus.Warn("Cannot proceed with logout - token not found")
+		h.Repository.UserLogout()
+		ctx.Status(204)
+		return
+	}
+
+	if h.Redis == nil {
+		logrus.Warn("Redis client is nil - cannot save to blacklist or delete session")
+		h.Repository.UserLogout()
+		ctx.Status(204)
+		return
+	}
+
+	// Удаляем сессию
+	logrus.Info("Attempting to delete session from Redis...")
+	if err := h.Redis.DeleteSession(context.Background(), token); err != nil {
+		logrus.Warnf("Failed to delete session from Redis: %v", err)
+	} else {
+		logrus.Infof("✓ Session deleted successfully")
+	}
+
+	// Добавляем токен в blacklist (чтобы он не мог быть использован снова)
+	// TTL токена = 24 часа (время жизни токена)
+	logrus.Info("Attempting to add token to blacklist...")
+	if err := h.Redis.WriteJWTToBlacklist(context.Background(), token, 24*time.Hour); err != nil {
+		logrus.Errorf("✗ Failed to add token to blacklist: %v", err)
+	} else {
+		logrus.Infof("✓ Token added to blacklist successfully")
+		// Проверяем, что токен действительно в blacklist
+		if err := h.Redis.CheckJWTInBlacklist(context.Background(), token); err == nil {
+			logrus.Info("✓ Verified: Token is now in blacklist")
+		} else {
+			logrus.Warnf("⚠ Warning: Token verification failed: %v", err)
+		}
+	}
+
 	h.Repository.UserLogout()
+	logrus.Info("=== ApiLogout completed ===")
 	ctx.Status(204)
+}
+
+// Вспомогательная функция для безопасного получения минимума
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 // ApiUpdateMe godoc
@@ -466,6 +579,25 @@ func (h *Handler) ApiLogin(ctx *gin.Context) {
 	if err != nil {
 		h.errorHandler(ctx, http.StatusInternalServerError, err)
 		return
+	}
+
+	// Сохраняем сессию в Redis, если Redis доступен
+	if h.Redis != nil {
+		sessionID := tokenString // Используем токен как session ID
+		sessionData := redis.SessionData{
+			UserUUID:   user.UUID.String(),
+			UserLogin:  user.Login,
+			UserName:   user.Name,
+			UserRole:   user.Role,
+			UserEmail:  user.Email,
+			LoginTime:  time.Now(),
+			LastAccess: time.Now(),
+		}
+		if err := h.Redis.SaveSession(context.Background(), sessionID, sessionData, 24*time.Hour); err != nil {
+			logrus.Warnf("Failed to save session to Redis: %v", err)
+		} else {
+			logrus.Infof("Session saved for user %s (UUID: %s)", user.Login, user.UUID.String())
+		}
 	}
 
 	// Устанавливаем куки

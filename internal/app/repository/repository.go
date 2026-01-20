@@ -1,171 +1,115 @@
 package repository
 
 import (
-	"fmt"
-	"strings"
-	"sync"
+	"WEB/internal/app/ds"
+	"errors"
+	"os"
+
+	"golang.org/x/crypto/bcrypt"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
 type Repository struct {
-	mu sync.RWMutex
+	db *gorm.DB
+	// MinIO
+	minioEndpoint string
+	minioUseSSL   bool
+	minioBucket   string
+	minioBaseURL  string
+	minioAccess   string
+	minioSecret   string
 }
 
-func NewRepository() (*Repository, error) {
-	return &Repository{}, nil
-}
-
-type Gas struct {
-	ID          int
-	Title       string
-	Formula     string
-	MolarMass   float64
-	ImageURL    string
-	Description string
-}
-
-// Структура для расчета давления
-type PressureCalculation struct {
-	ID                 int
-	GasID              int
-	GasTitle           string
-	Formula            string
-	InitialPressure    float64 // Па
-	InitialTemperature float64 // K
-	FinalTemperature   float64 // K
-	FinalPressure      float64 // Па
-}
-
-// Журнал расчетов
-type Journal struct {
-	Calculations []PressureCalculation
-}
-
-var (
-	journalStorage = &Journal{
-		Calculations: []PressureCalculation{
-			{
-				ID:                 1,
-				GasID:              1,
-				GasTitle:           "Азот",
-				Formula:            "N₂",
-				InitialPressure:    101325,
-				InitialTemperature: 293,
-				FinalTemperature:   373,
-				FinalPressure:      128857,
-			},
-			{
-				ID:                 2,
-				GasID:              2,
-				GasTitle:           "Кислород",
-				Formula:            "O₂",
-				InitialPressure:    100000,
-				InitialTemperature: 273,
-				FinalTemperature:   323,
-				FinalPressure:      118315,
-			},
-			{
-				ID:                 3,
-				GasID:              3,
-				GasTitle:           "Гелий",
-				Formula:            "He",
-				InitialPressure:    95000,
-				InitialTemperature: 283,
-				FinalTemperature:   353,
-				FinalPressure:      118551,
-			},
-		},
-	}
-	journalMutex = &sync.RWMutex{}
-)
-
-func (r *Repository) GetGases() ([]Gas, error) {
-	Gases := []Gas{
-		{
-			ID:          1,
-			Title:       "Азот",
-			Formula:     "N₂",
-			MolarMass:   28.02,
-			ImageURL:    "http://127.0.0.1:9000/gase/azot.webp",
-			Description: "Азот — инертный газ, составляющий около 78% атмосферы Земли. Широко используется в промышленности и медицине.",
-		},
-		{
-			ID:          2,
-			Title:       "Кислород",
-			Formula:     "O₂",
-			MolarMass:   32.00,
-			ImageURL:    "http://localhost:9000/gase/kislorod.webp",
-			Description: "Кислород необходим для дыхания и горения. Составляет около 21% атмосферы Земли.",
-		},
-		{
-			ID:          3,
-			Title:       "Гелий",
-			Formula:     "He",
-			MolarMass:   4.00,
-			ImageURL:    "http://localhost:9000/gase/geliy.png",
-			Description: "Гелий — лёгкий инертный газ, второй по распространённости во Вселенной. Используется в баллонах и охлаждающих системах.",
-		},
-		{
-			ID:          4,
-			Title:       "Водород",
-			Formula:     "H₂",
-			MolarMass:   2.016,
-			ImageURL:    "http://localhost:9000/gase/vodolod.webp",
-			Description: "Самый легкий газ во Вселенной с высокой диффузионной способностью. Используется как топливо и в химической промышленности.",
-		},
-		{
-			ID:          5,
-			Title:       "Углекислый газ",
-			Formula:     "CO₂",
-			MolarMass:   44.01,
-			ImageURL:    "http://localhost:9000/gase/uglekisliy_gas.webp",
-			Description: "Важный компонент атмосферы и круговорота углерода. Широко применяется в пищевой промышленности и пожаротушении.",
-		},
-	}
-	if len(Gases) == 0 {
-		return nil, fmt.Errorf("массив пустой")
-	}
-	return Gases, nil
-}
-
-func (r *Repository) GetGas(id int) (Gas, error) {
-	gases, err := r.GetGases()
+func New(dsn string) (*Repository, error) {
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
-		return Gas{}, err
+		return nil, err
 	}
 
-	for _, gas := range gases {
-		if gas.ID == id {
-			return gas, nil
-		}
-	}
-	return Gas{}, fmt.Errorf("газ не найден")
+	// Настройки MinIO из ENV с дефолтами под docker-compose
+	endpoint := getenvDefault("MINIO_ENDPOINT", "localhost:9000")
+	access := getenvDefault("MINIO_ACCESS_KEY", "minio")
+	secret := getenvDefault("MINIO_SECRET_KEY", "minio124")
+	bucket := getenvDefault("MINIO_BUCKET", "gases")
+	baseURL := getenvDefault("MINIO_PUBLIC_BASEURL", "http://localhost:9000")
+	useSSL := getenvDefault("MINIO_USE_SSL", "false") == "true"
+
+	return &Repository{
+		db:            db,
+		minioEndpoint: endpoint,
+		minioUseSSL:   useSSL,
+		minioBucket:   bucket,
+		minioBaseURL:  baseURL,
+		minioAccess:   access,
+		minioSecret:   secret,
+	}, nil
 }
 
-func (r *Repository) GetGasesByTitle(title string) ([]Gas, error) {
-	gases, err := r.GetGases()
+// Expose DB when needed (read-only)
+func (r *Repository) DB() *gorm.DB { return r.db }
+
+// GetMinIOBaseURL возвращает базовый URL MinIO
+func (r *Repository) GetMinIOBaseURL() string {
+	return r.minioBaseURL
+}
+
+// ---------- Users domain (старая реализация) ----------
+
+var currentUserID uint = 1 // имитация сессии
+
+func (r *Repository) UserRegister(login, password string) error {
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
-		return []Gas{}, err
+		return err
 	}
-
-	var result []Gas
-	for _, gase := range gases {
-		if strings.Contains(strings.ToLower(gase.Title), strings.ToLower(title)) {
-			result = append(result, gase)
-		}
-	}
-
-	return result, nil
+	u := ds.User{Login: login, Password: string(hash)}
+	return r.db.Create(&u).Error
 }
 
-// Методы для работы с журналом расчетов
-func (r *Repository) GetJournal() *Journal {
-	journalMutex.RLock()
-	defer journalMutex.RUnlock()
-	return journalStorage
+func (r *Repository) UserLogin(login, password string) error {
+	var u ds.User
+	if err := r.db.Where("login = ?", login).First(&u).Error; err != nil {
+		return err
+	}
+	if err := bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(password)); err != nil {
+		return errors.New("invalid credentials")
+	}
+	currentUserID = u.ID
+	return nil
 }
 
-func (r *Repository) GetJournalCount() int {
-	journalMutex.RLock()
-	defer journalMutex.RUnlock()
-	return len(journalStorage.Calculations)
+func (r *Repository) UserLogout() { currentUserID = 0 }
+
+func (r *Repository) UserMe() (*ds.User, error) {
+	if currentUserID == 0 {
+		return nil, errors.New("not authenticated")
+	}
+	var u ds.User
+	if err := r.db.First(&u, currentUserID).Error; err != nil {
+		return nil, err
+	}
+	return &u, nil
+}
+
+func (r *Repository) UserUpdateMe(login *string) error {
+	if currentUserID == 0 {
+		return errors.New("not authenticated")
+	}
+	updates := map[string]interface{}{}
+	if login != nil {
+		updates["login"] = *login
+	}
+	if len(updates) == 0 {
+		return nil
+	}
+	return r.db.Model(&ds.User{}).Where("id = ?", currentUserID).Updates(updates).Error
+}
+
+// helpers
+func getenvDefault(k, def string) string {
+	if v := os.Getenv(k); v != "" {
+		return v
+	}
+	return def
 }
